@@ -1,0 +1,23 @@
+# LR文法，以双下划线“__”开头的是终结符，否则是非终结符。
+
+Program -> Declaration-List
+# 1
+
+Declaration-List -> Declaration-List declaration | declaration
+# 2
+
+declaration -> varDeclaration | funDeclaration | relDeclaration
+# 4
+
+varDeclaration -> TypeSpecifier varDeclList __;
+# 7
+
+varDeclList -> varDeclList __, varDeclID | varDeclID
+# 8
+
+varDeclID -> __id Array
+# 9
+
+Array -> Array __[ __number __] | __eof
+# 10
+
