@@ -34,9 +34,8 @@ int main(int argc, char** argv) {
         shared_ptr<Scanner> sc(new Scanner());
         sc->scan(fp);
         // test_scanner(sc);        
-        shared_ptr<lr_parser> pr(new lr_parser());
+        shared_ptr<LRParser> pr(new LRParser());
         pr->load_grammer("grammer.txt");
-
         
         fclose(fp);
     } catch(int& val) {

@@ -3,21 +3,43 @@
 Program -> Declaration-List
 # 1
 
-Declaration-List -> Declaration-List declaration | declaration
+Declaration-List -> Declaration-List declaration
 # 2
 
-declaration -> varDeclaration | funDeclaration | relDeclaration
+Declaration-List -> declaration
+# 3
+
+declaration -> varDeclaration
 # 4
+
+############# declaration -> funDeclaration
+
+############# declaration -> recDeclaration
 
 varDeclaration -> TypeSpecifier varDeclList __;
 # 7
 
-varDeclList -> varDeclList __, varDeclID | varDeclID
+varDeclList -> varDeclList __, varDeclID
 # 8
 
-varDeclID -> __id Array
+varDeclList -> varDeclID
 # 9
 
-Array -> Array __[ __number __] | __eof
+varDeclID -> __id Array
 # 10
+
+Array -> Array __[ __number __]
+# 11
+
+Array -> __eof
+# 12
+
+TypeSpecifier -> __int
+# 13
+
+TypeSpecifier -> __long
+# 14
+
+TypeSpecifier -> __char
+# 15
 
