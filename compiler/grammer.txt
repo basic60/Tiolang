@@ -17,29 +17,29 @@ declaration -> varDeclaration
 ############# declaration -> recDeclaration
 
 varDeclaration -> TypeSpecifier varDeclList __;
-# 7
+# 5
 
 varDeclList -> varDeclList __, varDeclID
-# 8
+# 6
 
 varDeclList -> varDeclID
-# 9
+# 7
 
 varDeclID -> __id Array
-# 10
+# 8
 
 Array -> Array __[ __number __]
-# 11
+# 9
 
 Array -> __eof
-# 12
+# 10
 
 TypeSpecifier -> __int
-# 13
+# 11
 
 TypeSpecifier -> __long
-# 14
+# 12
 
 TypeSpecifier -> __char
-# 15
+# 13
 

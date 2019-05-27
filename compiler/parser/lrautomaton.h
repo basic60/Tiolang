@@ -5,11 +5,12 @@
 #include<memory>
 #include<map>
 #include<set>
+#include<stack>
 #include"symbol.h"
 namespace tio
 {
     struct atm_state {
-        lritem head;
+        std::vector<lritem> head;
         std::vector<lritem> closure;
     };
 
@@ -21,15 +22,12 @@ namespace tio
         void cal_first(const symbol& smb);
         void fill_table(lritem itm, int id, std::stack<int>& s);
         std::map<symbol, std::set<symbol>> first_set;
-        
+    public:
         std::map<std::pair<int, symbol>, int> Goto;
         std::map<std::pair<int, symbol>, std::pair<char, int>> Action;
-    public:
         LRAutomaton();
         void build_automaton();
         void set_items(std::shared_ptr<std::vector<lritem>> itm);
     };
-
-
 }
 #endif

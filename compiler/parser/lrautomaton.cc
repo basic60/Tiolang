@@ -26,10 +26,10 @@ namespace tio
     }
 
     void LRAutomaton::build_automaton() {
-        lritem fst_itm = (*items)[0];
-        fst_itm.ahsym.insert({SYMBOL_TERMINAL, "eof"});
+        lritem fst_item = (*items)[0];
+        fst_item.ahsym.insert({SYMBOL_TERMINAL, "eof"});
         atm_state stmp;
-        stmp.head = fst_itm;
+        stmp.head.push_back(fst_item);
 
         states.push_back(stmp);
         stack<int> s;           // stack to store state id
@@ -38,74 +38,107 @@ namespace tio
             int id = s.top();
             s.pop();
 
-            const lritem& fst_item = states[id].head;
-            stack<symbol> hdstack;
-            stack<set<symbol>> ahstack;
-            map<symbol, bool> has_expanded;
 
-            if(fst_item.pos < fst_item.body.size()) {
-                hdstack.push(fst_item.body[fst_item.pos]);
-                has_expanded[fst_item.body[fst_item.pos]] = true;
-                if(fst_item.pos + 1 < fst_item.body.size()) {
-                    ahstack.push(first_set[fst_item.body[fst_item.pos + 1]]);
-                } else {
-                    ahstack.push(fst_item.ahsym);
+            map<pair<int, set<symbol>>,  bool> has_expanded;
+            for(auto const& fst_item : states[id].head) {
+                stack<symbol> hdstack;
+                stack<set<symbol>> ahstack;
+
+                if(fst_item.pos < fst_item.body.size()) {
+                    hdstack.push(fst_item.body[fst_item.pos]);
+                    if(fst_item.pos + 1 < fst_item.body.size()) {
+                        ahstack.push(first_set[fst_item.body[fst_item.pos + 1]]);
+                    } else {
+                        ahstack.push(fst_item.ahsym);
+                    }
+                    has_expanded[make_pair(fst_item.id, ahstack.top())] = true;
                 }
-            }
 
-            while (!hdstack.empty()) {       // get all the colsure
-                const symbol sb_hd = hdstack.top();
-                const set<symbol> ah_dft = ahstack.top();
+                while (!hdstack.empty()) {       // get all the colsure
+                    symbol sb_hd = hdstack.top();
+                    set<symbol> ah_dft = ahstack.top();
 
-                hdstack.pop();
-                ahstack.pop();
-                for(auto i : *items) {  // get the items starts with cs.top()
-                    if(i.head == sb_hd) {
-                        i.ahsym = ah_dft;
-                        states[id].closure.push_back(i);                // Add a new closure item 
-                        if(i.body[0].stype == SYMBOL_NONTERMINAL && !has_expanded[i.body[0]]) {
-                            has_expanded[i.body[0]] = true;
-                            hdstack.push(i.body[0]);
-                            if(i.pos + 1 < i.body.size()) {
-                                ahstack.push(first_set[i.body[i.pos + 1]]);
-                            } else {
-                                ahstack.push(ah_dft);
+                    hdstack.pop();
+                    ahstack.pop();
+                    for(auto i : *items) {  // get the items starts with cs.top()
+                        if(i.head == sb_hd) {
+                            i.ahsym = ah_dft;
+                            bool suc = false;
+                            for(int t = 0; t < states[id].closure.size(); t++) {
+                                lritem& tite = states[id].closure[t];
+                                if(tite.head == i.head && tite.body.size() == i.body.size()) {
+                                    suc = true;
+                                    for(int k = 0; k < i.body.size(); k++) {
+                                        if(tite.body[k] != i.body[k]) {
+                                            suc =false;
+                                        }
+                                    }
+                                    if(suc) {
+                                        for(auto j : i.ahsym) {
+                                            tite.ahsym.insert(j);
+                                        }
+                                        ah_dft = tite.ahsym;
+                                        break;
+                                    }
+                                }
+                            }
+                            if(!suc) {
+                                states[id].closure.push_back(i);                // Add a new closure item 
+                            }
+
+                            if(i.body[0].stype == SYMBOL_NONTERMINAL) {
+                                hdstack.push(i.body[0]);
+                                if(i.pos + 1 < i.body.size()) {
+                                    ahstack.push(first_set[i.body[i.pos + 1]]);
+                                } else {
+                                    ahstack.push(ah_dft);
+                                }
+                                if(has_expanded[make_pair(i.id, ahstack.top())]) {
+                                    ahstack.pop();
+                                    hdstack.pop();
+                                } else {
+                                    has_expanded[make_pair(i.id, ahstack.top())] = true;
+                                }
                             }
                         }
                     }
                 }
             }
 
+
             // Fill the action and goto table.
             for(auto i : states[id].closure) {
                 fill_table(i, id, s);        
             }
-            
-            fill_table(states[id].head, id, s);
+            for(auto i : states[id].head) {
+                fill_table(i, id, s);
+            }
         }
 
         // ====================================TEST======================================
-        // Print All the automaton states. 
-        // for(int i = 0; i < states.size(); i++) {
-        //     cout<<i<<" : "<<endl;
-        //     cout<<states[i].head<<endl;
+        //Print All the automaton states. 
+        for(int i = 0; i < states.size(); i++) {
+            cout<<i<<" : "<<endl;
+            for(auto j : states[i].head) {
+                cout<<j<<endl;
+            }
 
-        //     for(auto j : states[i].closure) {
-        //         cout<<j<<endl;
-        //     }
-        // }
+            for(auto j : states[i].closure) {
+                cout<<j<<endl;
+            }
+        }
 
-        // Print the Action table:
-        // cout<<endl<<"Action:"<<endl;
-        // for(auto &i : Action ) {
-        //     cout<<i.first.first<<", "<<i.first.second.raw<<": "<<i.second.first<<" "<<i.second.second<<endl;
-        // }
+        //Print the Action table:
+        cout<<endl<<"Action:"<<endl;
+        for(auto &i : Action ) {
+            cout<<i.first.first<<", "<<i.first.second.raw<<": "<<i.second.first<<" "<<i.second.second<<endl;
+        }
 
-        // Print the Goto table:
-        // cout<<"Goto:"<<endl;
-        // for(auto &i : Goto ) {
-        //     cout<<i.first.first<<", "<<i.first.second.raw<<": "<<i.second<<endl;
-        // }
+        //Print the Goto table:
+        cout<<"Goto:"<<endl;
+        for(auto &i : Goto ) {
+            cout<<i.first.first<<", "<<i.first.second.raw<<": "<<i.second<<endl;
+        }
     }
 
     void LRAutomaton::fill_table(lritem i, int id, stack<int>& s) {
@@ -120,9 +153,9 @@ namespace tio
         } else {
             i.pos++;
             int newid = find_item_in_state(i);
-            if(newid == -1) {       // Create the new state;
+            if(newid == -1 && !Goto.count(make_pair(id, i.body[i.pos - 1]))) {       // Create the new state;
                 atm_state new_st;
-                new_st.head = i;
+                new_st.head.push_back(i);
                 states.push_back(new_st);
                 s.push(states.size() - 1);
                 if(i.body[i.pos - 1].stype == SYMBOL_TERMINAL) {
@@ -130,16 +163,18 @@ namespace tio
                 } else {
                     Goto[make_pair(id, i.body[i.pos - 1])] = states.size() -1;
                 }
+            } else if(newid == -1 && Goto.count(make_pair(id, i.body[i.pos - 1]))) {
+                newid = Goto[make_pair(id, i.body[i.pos - 1])];
+                states[newid].head.push_back(i);
             } else {
                 if(i.body[i.pos - 1].stype == SYMBOL_TERMINAL) {
                     Action[make_pair(id, i.body[i.pos - 1])] = make_pair('s', newid);
                 } else {
-                        Goto[make_pair(id, i.body[i.pos - 1])] = newid;
+                    Goto[make_pair(id, i.body[i.pos - 1])] = newid;
                 }
             }
         }
     }
-
 
     void LRAutomaton::cal_first(const symbol& sb) {
         if(sb.stype == SYMBOL_TERMINAL) {
@@ -187,9 +222,12 @@ namespace tio
 
     int LRAutomaton::find_item_in_state(const lritem& it) {
         for(size_t i = 0; i !=  states.size(); i++) {
-            if(states[i].head == it) {
-                return i;
+            for(auto &j : states[i].head) {
+                if(j == it) {
+                    return i;
+                }
             }
+
         }
         return -1;
     }

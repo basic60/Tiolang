@@ -8,4 +8,6 @@ namespace tio
         this->raw_str = rst;
         this->line_num = line_number;
     }
+
+    token::token(){}
 }

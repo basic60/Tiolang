@@ -159,6 +159,25 @@ namespace tio
                 break;
             }
         }
+
+        if(s != "") {
+            switch (state) {
+            case dfa_state::id:
+                tokens.push({TOKEN_ID, s, line});
+                break;
+            case dfa_state::number:
+                tokens.push({TOKEN_NUMBER, s, line});
+                break;
+            case dfa_state::opt:
+                tokens.push({TOKEN_OPERATOR, s, line});
+                break;
+            case dfa_state::spt:
+                tokens.push({TOKEN_SPLITER, s, line});
+                break;
+            }
+        }
+
+        tokens.push({TOKEN_KEYWORD, "eof", line});
     }
 
 

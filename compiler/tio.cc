@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
         // test_scanner(sc);        
         shared_ptr<LRParser> pr(new LRParser());
         pr->load_grammer("grammer.txt");
-        
+        pr->generate_code(sc, "code.log");
         fclose(fp);
     } catch(int& val) {
         cerr<<"exit code: "<<val<<endl;

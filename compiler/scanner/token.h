@@ -14,6 +14,7 @@ namespace tio
         std::string raw_str;
         int line_num;
         token(int tp, const std::string& rst,int line_number);
+        token();
     };
 } 
 #endif
