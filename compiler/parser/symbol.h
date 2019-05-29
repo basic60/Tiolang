@@ -4,6 +4,7 @@
 #include<vector>
 #include<set>
 #include<ostream>
+#include"anytype.h"
 namespace tio
 {
     #define SYMBOL_TERMINAL 1
@@ -11,9 +12,10 @@ namespace tio
     struct symbol {
         int stype;
         std::string raw;
+        anytp data;
+
         symbol(int tp, std::string v);
         symbol();
-
         bool operator==(const symbol& other) const;
         bool operator!=(const symbol& other) const;
         bool operator<(const symbol& other) const;

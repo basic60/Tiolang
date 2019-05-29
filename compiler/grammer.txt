@@ -1,45 +1,65 @@
 # LR文法，以双下划线“__”开头的是终结符，否则是非终结符。
+# 每一行文法之后的注释解释了对应的语法制导翻译会进行的操作，具体实现见代码。
 
 Program -> Declaration-List
-# 1
+    # 1
 
 Declaration-List -> Declaration-List declaration
-# 2
+    # 2
 
 Declaration-List -> declaration
-# 3
+    # 3
 
 declaration -> varDeclaration
-# 4
+    # 4
 
-############# declaration -> funDeclaration
-
-############# declaration -> recDeclaration
+#======================================================== var declaration ===============================
 
 varDeclaration -> TypeSpecifier varDeclList __;
-# 5
+    # 5
+    # Add the varialbes to the symbol table in the varDeclList
 
 varDeclList -> varDeclList __, varDeclID
-# 6
+    # 6
+    # Add verDeclID to varDeclList
 
 varDeclList -> varDeclID
-# 7
+    # 7
+    # Add verDeclID to varDeclList
 
-varDeclID -> __id Array
-# 8
+
+varDeclID -> Pointer __id Array
+    # 8
+    # var_name = id, size = Array size. type add pointer
 
 Array -> Array __[ __number __]
-# 9
+    # 9
+    # arr_size = arr_size * number.val
 
 Array -> __eof
-# 10
+    # 10
+    # arr_size = 1
 
 TypeSpecifier -> __int
-# 11
+    # 11
+    # type <- int
 
 TypeSpecifier -> __long
-# 12
+    # 12
+    # type <-long
 
 TypeSpecifier -> __char
-# 13
+    # 13
+    # type <- char
 
+TypeSpecifier -> __void
+    # 14
+    # type <- char
+
+Pointer -> Pointer __*
+    # 15
+    # pcnt = pcnt + 1
+
+Pointer -> __eof
+    # 16
+    # pcnt = 0  

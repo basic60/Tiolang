@@ -8,6 +8,7 @@
 #include"lrparser.h"
 #include"log/log.h"
 #include"str_helper/str_helper.h"
+#include"parser_aux.h"
 using namespace std;
 namespace tio
 {
@@ -71,6 +72,7 @@ namespace tio
         }
 
         stack<int> s;
+        vector<symbol> line;
         s.push(0);
         bool skip = false;
         token tk;
@@ -85,8 +87,10 @@ namespace tio
             sb.stype = SYMBOL_TERMINAL;
             if(tk.token_type == TOKEN_ID) {
                 sb.raw = "id";
+                sb.data = tk.raw_str;
             } else if(tk.token_type == TOKEN_NUMBER) {
                 sb.raw = "number";
+                sb.data = stoi(tk.raw_str);
             } else {
                 sb.raw = tk.raw_str;
             }
@@ -110,10 +114,81 @@ namespace tio
                 if(act == 's') {
                     // LOG(INFO)<<"s"<<" "<<nid<<" "<<endl;
                     s.push(nid);
+                    line.push_back(sb);
                 } else if(act == 'r') {
                     // LOG(INFO)<<"r "<<nid<<"  "<<(*items)[nid - 1]<<endl;
                     int cnt = (*items)[nid - 1].body.size();
-                    while(cnt--) s.pop();
+
+                    symbol push_smb = (*items)[nid - 1].head;
+                    switch (nid) {
+                    case 11: // TypeSpecifier -> __int
+                    case 12: // TypeSpecifier -> __long
+                    case 13: // TypeSpecifier -> __char
+                    case 14: // TypeSpecifier -> __void
+                        push_smb.data = line[line.size() - 1].raw;
+                        break;
+                    case 16: // Pointer -> __eof
+                        push_smb.data = 0;
+                        break;
+                    case 15: // Pointer -> Pointer __*
+                        push_smb.data = anytp_cast<int>(line[line.size()-2].data) + 1;
+                        break;
+                    case 10: // Array -> __eof
+                        push_smb.data = 1;
+                        break;
+                    case 9: // Array -> Array __[ __number __]
+                        push_smb.data = anytp_cast<int>(line[line.size() - 4].data) * anytp_cast<int>(line[line.size() - 2].data);
+                        break;
+                    case 8: // varDeclID -> Pointer __id Array
+                        push_smb.data = VarUnit(anytp_cast<int>(line[line.size() - 3].data),\
+                                                anytp_cast<string>(line[line.size() - 2].data),\
+                                                anytp_cast<int>(line[line.size() - 1].data));
+                        break;
+                    case 7: {  // varDeclList -> varDeclID
+                        VarList vltmp;
+                        vltmp.vlist.push_back(anytp_cast<VarUnit>(line[line.size() - 1].data));
+                        push_smb.data = vltmp;
+                        break;
+                    }
+                    case 6: {  // varDeclList -> varDeclList __, varDeclID
+                        VarList vltmp;
+                        for(auto j : anytp_cast<VarList>(line[line.size() - 3].data).vlist) {
+                            vltmp.vlist.push_back(j);
+                        }
+                        vltmp.vlist.push_back(anytp_cast<VarUnit>(line[line.size() -1].data));
+                        push_smb.data = vltmp;
+                        break;
+                    }
+                    case 5: { // varDeclaration -> TypeSpecifier varDeclList __;
+                        string tp = anytp_cast<string>(line[line.size() - 3].data);
+                        int sz = 0;
+                        if(tp == "void") {
+                            LOG(ERROR)<<"Varialbe type cann't be void."<<endl;
+                            throw -1;
+                        } else if(tp == "int") {
+                            sz = 4;
+                        } else if(tp == "long") {
+                            sz = 8;
+                        } else if(tp == "char") {
+                            sz = 1;
+                        }
+
+                        for(auto j : anytp_cast<VarList>(line[line.size() - 2].data).vlist) {
+                            if(j.ptr_cnt) {
+                                sz = 8;
+                            }
+                            sbtable.add_to_table(tp, sz, j);
+                        }
+                        break;
+                    }
+                    default:
+                        break;
+                    }
+
+                    while(cnt--) {
+                        s.pop();
+                        line.pop_back();
+                    }
 
                     symbol gosb = (*items)[nid - 1].head;
                     if(!atm.Goto.count(make_pair(s.top(), gosb))) {
@@ -122,6 +197,7 @@ namespace tio
                     } else {
                         // LOG(INFO)<<"From "<<s.top()<<" goto "<<atm.Goto[make_pair(s.top(), gosb)]<<endl;
                         s.push(atm.Goto[make_pair(s.top(), gosb)]);
+                        line.push_back(push_smb);
                         skip = true;
                     }
                 } else if(act == 'a') {
@@ -140,4 +216,5 @@ namespace tio
     LRParser::LRParser() {
         items.reset(new vector<lritem>());
     }
+
 }
