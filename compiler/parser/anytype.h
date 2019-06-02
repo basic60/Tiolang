@@ -52,6 +52,7 @@ namespace tio
             return static_cast<anytp::real_data<T>*>(atp.ptr.get())->val;
         } else {
             LOG(ERROR)<<"Type different. Cann't convert!"<<std::endl;
+            throw -1;
         }
     }
 }

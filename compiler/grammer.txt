@@ -63,3 +63,251 @@ Pointer -> Pointer __*
 Pointer -> __eof
     # 16
     # pcnt = 0  
+
+#================================================= func declaration ==============================================
+
+declaration -> funDeclaration
+    # 17
+
+funDeclaration -> TypeSpecifier Pointer __id __( params __) CompoundStatement
+    # 18
+
+params -> paraList
+    # 19
+
+params -> __eof
+    # 20
+
+paraList -> paraList __, TypeSpecifier Pointer __id
+    # 21
+
+paraList -> TypeSpecifier Pointer __id
+    # 21
+
+#================================================= Statement ==============================================
+
+Statement -> CompoundStatement
+    # 22
+
+Statement -> ExpressionStatement
+    # 23
+
+Statement -> IfStatement
+    # 24
+
+Statement -> WhileStatement
+    # 25
+
+Statement -> returnStatement
+    # 26
+
+Statement -> breakStatement
+    # 27
+
+Statement -> continueStatement
+    # 28
+
+breakStatement -> __break __;
+    # 29
+
+continueStatement -> __continue __;
+    # 30
+
+returnStatement -> __return __;
+    # 31
+
+returnStatement -> __return expression __;
+    # 32
+
+IfStatement -> __if __( simpleExpression __) Statement ElifStat
+    # 33
+
+ElifStat -> __eof
+    # 34
+
+ElifStat -> __elif __( simpleExpression __) Statement ElifStat
+    # 35
+
+ElifStat -> __else Statement
+    # 36
+
+WhileStatement -> __while __( simpleExpression __) Statement
+    # 37
+
+CompoundStatement -> __{ localDeclarations statementList __}
+    # 38
+
+localDeclarations -> localDeclarations varDeclaration
+    #39
+
+localDeclarations -> varDeclaration 
+    # 40
+
+localDeclarations -> __eof
+    # 41
+
+statementList -> statementList Statement
+    # 42
+
+statementList -> __eof
+    # 43
+
+ExpressionStatement -> expression __;
+    # 44
+
+ExpressionStatement -> __;
+    # 45
+
+expression -> mutable __= expression
+    # 46
+
+expression -> mutable __+= expression
+    # 47
+
+expression -> mutable __-= expression
+    # 48
+
+expression -> mutable __*= expression
+    # 49
+
+expression -> mutable __/= expression
+    # 50
+
+expression -> mutable __++
+    # 51
+
+expression -> mutable __--
+    # 52
+
+expression -> simpleExpression 
+    # 53
+
+simpleExpression -> simpleExpression __|| andExpression
+    # 54
+
+simpleExpression -> andExpression
+    # 55
+
+andExpression -> andExpression __&& relExpression
+    # 56
+
+andExpression -> relExpression
+    # 57
+
+relExpression -> sumExpression relop sumExpression
+    # 58
+
+relExpression -> sumExpression
+    # 59
+
+sumExpression -> sumExpression sumop term
+    # 60
+
+sumExpression -> term
+    # 61
+
+term -> term mulop unaryExpression 
+    # 62
+
+term -> unaryExpression
+    # 63
+
+relop -> __<=
+    # 64
+
+relop -> __<
+    # 65
+
+relop -> __>
+    # 66
+
+relop -> __>=
+    # 67
+
+relop -> __==
+    # 68
+
+relop -> __!=
+    # 69
+
+sumop -> __+
+    # 70
+
+sumop -> __-
+    # 71
+
+mulop -> __*
+    # 72
+
+mulop -> __/
+    # 73
+
+mulop -> __%
+    # 74
+
+unaryExpression -> unaryop factor 
+    # 75
+
+unaryExpression -> factor
+    # 76
+
+unaryop -> __-
+    # 77
+
+unaryop -> __*
+    # 78
+
+unaryop -> __&
+    # 79
+
+unaryop -> __!
+    # 80
+
+factor -> mutable
+    # 81
+
+factor -> immutable
+    # 82
+
+#=========================================mutalbe/immutable======================================================
+mutable -> __id
+    # 83
+
+mutable -> mutable __[ expression __]
+    # 84
+
+immutable -> __( expression __) 
+    # 85
+
+immutable -> Call
+    # 86
+
+immutable -> constant
+    # 87
+
+Call -> __id __( args __)
+    # 88
+
+args -> argList
+    # 89
+    
+args -> __eof
+    # 90
+
+argList -> argList __, expression
+    # 91
+
+argList -> expression
+    # 92
+
+constant -> __number 
+    # 93
+
+constant -> __number 
+    # 94
+
+constant -> __true
+    # 95
+
+constant -> __false
+    # 96

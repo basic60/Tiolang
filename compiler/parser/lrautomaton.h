@@ -18,9 +18,8 @@ namespace tio
     private:
         std::vector<atm_state> states;
         std::shared_ptr<std::vector<lritem>> items;
-        int find_item_in_state(const lritem& it);
+        int find_itemhd_in_state(const std::vector<lritem>& it);
         void cal_first(const symbol& smb);
-        void fill_table(lritem itm, int id, std::stack<int>& s);
         std::map<symbol, std::set<symbol>> first_set;
     public:
         std::map<std::pair<int, symbol>, int> Goto;

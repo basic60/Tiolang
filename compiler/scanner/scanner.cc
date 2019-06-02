@@ -11,9 +11,10 @@ namespace tio
     #define MEET_SPLITER(c) ((c) == '(' || (c) == ')' || (c) == '[' || (c) == ']' || (c) == '{' \
                             || (c) == '}'  || (c) == '\"' || (c) == '\'' || (c) == ';')
     #define MEET_OPERATOR(c) ((c) == '+' || (c) == '-' || (c) == '*' || (c) == '/' || (c) == '.' || (c) == ','\
-                            || (c) == '>' || (c) == '<' || (c) == '!' || (c) == '=' || (c) == '&' || (c) == '|')
+                            || (c) == '>' || (c) == '<' || (c) == '!' || (c) == '=' || (c) == '&' || (c) == '|' || (c) == '%')
     Scanner::Scanner() {
-        keyword_set = {"int", "char", "void", "long", "return"};
+        keyword_set = {"int", "char", "void", "long", "return", "if", "while", "continue", "break"
+                       "true", "false", "else", "elif"};
     }
 
     void Scanner::scan(FILE* fp) {
@@ -75,9 +76,10 @@ namespace tio
                 }
                 break;
             case dfa_state::opt:
-                if(c == '=' && (s[0] == '=' || s[0] == '>' || s[0] == '<' || s[0] == '!') ||
-                 c == '<' && s[0] == '<' ||
-                 c == '>' && s[0] == '>') {
+                if(c == '=' && (s[0] == '=' || s[0] == '>' || s[0] == '<' || s[0] == '!' || s[0] == '+' || s[0] == '-' || s[0] == '*' || s[0] == '/') ||
+                 c == '<' && s[0] == '<' || c == '>' && s[0] == '>' ||
+                 s[0] == '&' && c == '&' || s[0] == '|' && c == '|' ||
+                 s[0] == '+' && c == '+' || s[0] == '-' && c == '-') {
                     s += c;
                     tokens.push({TOKEN_OPERATOR, s, line});
                     s = "";

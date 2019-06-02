@@ -6,6 +6,7 @@ namespace tio
 {
     struct VarUnit {
         int ptr_cnt;
+        std::string type_name;
         std::string var_name;
         int arr_size;
         VarUnit(int pcnt, std::string vname, int asize);

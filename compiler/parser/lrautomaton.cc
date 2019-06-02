@@ -38,7 +38,6 @@ namespace tio
             int id = s.top();
             s.pop();
 
-
             map<pair<int, set<symbol>>,  bool> has_expanded;
             for(auto const& fst_item : states[id].head) {
                 stack<symbol> hdstack;
@@ -105,13 +104,78 @@ namespace tio
                 }
             }
 
-
-            // Fill the action and goto table.
-            for(auto i : states[id].closure) {
-                fill_table(i, id, s);        
+            set<symbol> sym_set;
+            vector<lritem> tmp_hd;
+            for(const auto& i : states[id].head) {
+                if(i.pos == i.body.size()) { // process reduction
+                    for(auto lk : i.ahsym) {
+                        pair<int, symbol> key = make_pair(id, lk);
+                        if(Action.count(key) && Action[key].first == 'r' && Action[key].second !=  i.id) {
+                            LOG(ERROR)<<"Reduce-Reduce conflict! When state "<<id<<" meets "<<lk.raw<<" It can reduce to:\n"<<
+                            (*items)[Action[key].second-1]<<"\tOR\n"<<i<<endl;
+                            throw -1;
+                        } else {
+                            Action[key] = make_pair(i.id == 1 ? 'a' : 'r', i.id);
+                        }        
+                    }
+                } else {
+                    sym_set.insert(i.body[i.pos]);
+                }
             }
-            for(auto i : states[id].head) {
-                fill_table(i, id, s);
+            for(const auto& i : states[id].closure) {
+                if(i.pos == i.body.size()) { // process reduction
+                    for(auto lk : i.ahsym) {
+                        pair<int, symbol> key = make_pair(id, lk);
+                        if(Action.count(key) && Action[key].first == 'r' && Action[key].second !=  i.id) {
+                            LOG(ERROR)<<"Reduce-Reduce conflict! When state "<<id<<" meets "<<lk.raw<<". It can reduce to:\n"<<
+                            (*items)[Action[key].second - 1]<<"\tOR\n"<<i<<endl;
+                            throw -1;
+                        } else {
+                            Action[key] = make_pair('r', i.id);
+                        }        
+                    }
+                } else {
+                    sym_set.insert(i.body[i.pos]);
+                }
+            }
+
+            // process shift and fill the gote talbe
+            for(const auto& smb : sym_set) { 
+                tmp_hd.clear();
+                for(auto i : states[id].head) {     // get all the items need to shift or goto
+                    i.pos++;
+                    if(i.body[i.pos - 1] == smb) { 
+                        tmp_hd.push_back(i);
+                    }
+                }
+                for(auto i : states[id].closure) {
+                    i.pos++;
+                    if(i.body[i.pos - 1] == smb) {
+                        tmp_hd.push_back(i);
+                    }
+                }
+                
+                int newid = find_itemhd_in_state(tmp_hd); 
+                if(newid == -1) { // create a new state
+                    atm_state new_st;
+                    for(auto& j : tmp_hd) {
+                        new_st.head.push_back(j);
+                    }
+                    states.push_back(new_st);
+                    s.push(states.size() - 1);
+                    newid = states.size() - 1;
+                }
+
+                if(smb.stype == SYMBOL_TERMINAL) {
+                    if(Action.count(make_pair(id, smb)) && Action[make_pair(id, smb)].first == 'r') {
+                        LOG(ERROR)<<"Shift-Reduce conflict! When state "<<id<<" meets "<<smb.raw<<". It can reduce to:\n"<<
+                        (*items)[Action[make_pair(id, smb)].second - 1];
+                        throw -1;
+                    }
+                    Action[make_pair(id, smb)] = make_pair('s', newid);
+                } else {
+                    Goto[make_pair(id, smb)] = newid;
+                }
             }
         }
 
@@ -138,41 +202,6 @@ namespace tio
         cout<<"Goto:"<<endl;
         for(auto &i : Goto ) {
             cout<<i.first.first<<", "<<i.first.second.raw<<": "<<i.second<<endl;
-        }
-    }
-
-    void LRAutomaton::fill_table(lritem i, int id, stack<int>& s) {
-        if(i.pos == i.body.size()) { // reduction
-            for(auto j : i.ahsym) {
-                if(i.id == 1) {
-                    Action[make_pair(id,j)] = make_pair('a', i.id);
-                } else {
-                    Action[make_pair(id,j)] = make_pair('r', i.id);
-                }
-            }
-        } else {
-            i.pos++;
-            int newid = find_item_in_state(i);
-            if(newid == -1 && !Goto.count(make_pair(id, i.body[i.pos - 1]))) {       // Create the new state;
-                atm_state new_st;
-                new_st.head.push_back(i);
-                states.push_back(new_st);
-                s.push(states.size() - 1);
-                if(i.body[i.pos - 1].stype == SYMBOL_TERMINAL) {
-                    Action[make_pair(id, i.body[i.pos - 1])] = make_pair('s', states.size() - 1);
-                } else {
-                    Goto[make_pair(id, i.body[i.pos - 1])] = states.size() -1;
-                }
-            } else if(newid == -1 && Goto.count(make_pair(id, i.body[i.pos - 1]))) {
-                newid = Goto[make_pair(id, i.body[i.pos - 1])];
-                states[newid].head.push_back(i);
-            } else {
-                if(i.body[i.pos - 1].stype == SYMBOL_TERMINAL) {
-                    Action[make_pair(id, i.body[i.pos - 1])] = make_pair('s', newid);
-                } else {
-                    Goto[make_pair(id, i.body[i.pos - 1])] = newid;
-                }
-            }
         }
     }
 
@@ -220,14 +249,23 @@ namespace tio
         }
     }
 
-    int LRAutomaton::find_item_in_state(const lritem& it) {
+    int LRAutomaton::find_itemhd_in_state(const vector<lritem>& it) {
         for(size_t i = 0; i !=  states.size(); i++) {
-            for(auto &j : states[i].head) {
-                if(j == it) {
-                    return i;
+            int cnt = 0;
+            for(const auto& itv : it) {
+                bool suc = false;
+                for(const auto& j : states[i].head) {
+                    if(j == itv) {
+                        suc = true;
+                        break;
+                    }
                 }
+                if(!suc)  break;
+                cnt++;
             }
-
+            if(cnt == it.size()) {
+                return i;
+            }
         }
         return -1;
     }

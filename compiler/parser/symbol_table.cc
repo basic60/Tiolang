@@ -19,12 +19,22 @@ namespace tio
         
     // }
 
-    void SymbolTable::add_to_table(const std::string& tname, const int& tsize, const VarUnit& vu) {
+    void SymbolTable::add_to_table(const VarUnit& vu) {
         if(table.count(vu.var_name)) {
             LOG(ERROR)<<"Duplicate declaration of: "<<vu.var_name<<endl;
             throw -1;
         } 
-        this->table[vu.var_name] = var_info(tname, tsize, vu.ptr_cnt, vu.arr_size);
+        int tsize = 0;
+        if(vu.ptr_cnt) {
+            tsize = POINTER_SIZE;
+        } else if(vu.type_name == "int") {
+            tsize = INT_SIZE;
+        } else if(vu.type_name == "long") {
+            tsize = LONG_SIZE;
+        } else if(vu.type_name == "char") {
+            tsize = CHAR_SIZE;
+        }
+        this->table[vu.var_name] = var_info(vu.type_name, tsize, vu.ptr_cnt, vu.arr_size);
         this->table[vu.var_name].addr = MemoryManager::alloc_static(this->table[vu.var_name].type_size * this->table[vu.var_name].arr_size);
     }
 

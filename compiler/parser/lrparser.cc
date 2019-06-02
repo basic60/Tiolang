@@ -66,6 +66,7 @@ namespace tio
     }
 
     int LRParser::generate_code(shared_ptr<Scanner> sc, string outpath) {
+        LOG(INFO)<<"Start generate code!"<<endl;
         if(!items->size()) {
             LOG(ERROR)<<"Empty garmmer!"<<endl;
             return -1;
@@ -80,7 +81,7 @@ namespace tio
             if(!skip) {
                 tk = sc->get_next_token();
             }
-            // cout<<"cur tk: "<<tk.raw_str<<endl;
+            cout<<"cur tk: "<<tk.raw_str<<endl;
 
             skip = false;
             symbol sb;
@@ -112,11 +113,11 @@ namespace tio
                 }
 
                 if(act == 's') {
-                    // LOG(INFO)<<"s"<<" "<<nid<<" "<<endl;
+                    LOG(INFO)<<"s"<<" "<<nid<<" "<<endl;
                     s.push(nid);
                     line.push_back(sb);
                 } else if(act == 'r') {
-                    // LOG(INFO)<<"r "<<nid<<"  "<<(*items)[nid - 1]<<endl;
+                    LOG(INFO)<<"r "<<nid<<"  "<<(*items)[nid - 1]<<endl;
                     int cnt = (*items)[nid - 1].body.size();
 
                     symbol push_smb = (*items)[nid - 1].head;
@@ -161,26 +162,22 @@ namespace tio
                     }
                     case 5: { // varDeclaration -> TypeSpecifier varDeclList __;
                         string tp = anytp_cast<string>(line[line.size() - 3].data);
-                        int sz = 0;
-                        if(tp == "void") {
-                            LOG(ERROR)<<"Varialbe type cann't be void."<<endl;
-                            throw -1;
-                        } else if(tp == "int") {
-                            sz = 4;
-                        } else if(tp == "long") {
-                            sz = 8;
-                        } else if(tp == "char") {
-                            sz = 1;
-                        }
 
-                        for(auto j : anytp_cast<VarList>(line[line.size() - 2].data).vlist) {
-                            if(j.ptr_cnt) {
-                                sz = 8;
-                            }
-                            sbtable.add_to_table(tp, sz, j);
+                        for(auto& j : anytp_cast<VarList>(line[line.size() - 2].data).vlist) {
+                            j.type_name = tp;
                         }
+                        push_smb.data = line[line.size() - 2].data;
                         break;
                     }
+                    case 4: //declaration -> varDeclaration
+                        for(const auto& j : anytp_cast<VarList>(line[line.size() - 1].data).vlist) {
+                            if(j.type_name == "void" && j.ptr_cnt == 0) {
+                                LOG(ERROR)<<"Varialbe type cann't be void."<<endl;
+                                throw -1;
+                            }
+                            sbtable.add_to_table(j);
+                        }
+
                     default:
                         break;
                     }
@@ -195,7 +192,7 @@ namespace tio
                         LOG(ERROR)<<"Unexcepted symbol: "<<sb.raw<<" Line: "<<tk.line_num<<endl;
                         return -1;
                     } else {
-                        // LOG(INFO)<<"From "<<s.top()<<" goto "<<atm.Goto[make_pair(s.top(), gosb)]<<endl;
+                        LOG(INFO)<<"From "<<s.top()<<" goto "<<atm.Goto[make_pair(s.top(), gosb)]<<endl;
                         s.push(atm.Goto[make_pair(s.top(), gosb)]);
                         line.push_back(push_smb);
                         skip = true;

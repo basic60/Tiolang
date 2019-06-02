@@ -6,6 +6,10 @@
 #include"parser_aux.h"
 namespace tio
 {
+    #define POINTER_SIZE 8
+    #define INT_SIZE 4
+    #define LONG_SIZE 8
+    #define CHAR_SIZE 1
     class SymbolTable {
     private:
         std::shared_ptr<SymbolTable> prev;
@@ -26,7 +30,7 @@ namespace tio
 
         std::map<std::string, var_info> table;
     public:
-        void add_to_table(const std::string& tname, const int& tsize, const VarUnit& vu);
+        void add_to_table(const VarUnit& vu);
         var_info get_varinfo(const std::string& vname);
     };
 }
