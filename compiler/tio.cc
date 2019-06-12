@@ -41,6 +41,10 @@ int main(int argc, char** argv) {
     } catch(int& val) {
         cerr<<"exit code: "<<val<<endl;
         exit(val);
-    }
+    } catch(exception& e) {
+        cerr<<e.what()<<endl;
+    } catch(...) {
+        cerr<<"Unknown exception"<<endl;
+    } 
     return 0;
 }

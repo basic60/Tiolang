@@ -71,9 +71,11 @@ declaration -> funDeclaration
 
 funDeclaration -> TypeSpecifier Pointer __id __( params __) CompoundStatement
     # 18
+    # 销毁函数的符号表，释放内存。
 
 params -> paraList
     # 19
+    # 当归约params时，添加栈帧。将函数名添加到符号表，新建函数的符号表 将参数添加至
 
 params -> __eof
     # 20
@@ -82,232 +84,239 @@ paraList -> paraList __, TypeSpecifier Pointer __id
     # 21
 
 paraList -> TypeSpecifier Pointer __id
-    # 21
+    # 22
 
 #================================================= Statement ==============================================
 
 Statement -> CompoundStatement
-    # 22
-
-Statement -> ExpressionStatement
     # 23
 
-Statement -> IfStatement
+Statement -> ExpressionStatement
     # 24
 
-Statement -> WhileStatement
+Statement -> IfStatement
     # 25
 
-Statement -> returnStatement
+Statement -> WhileStatement
     # 26
 
-Statement -> breakStatement
+Statement -> returnStatement
     # 27
 
-Statement -> continueStatement
+Statement -> breakStatement
     # 28
 
-breakStatement -> __break __;
+Statement -> continueStatement
     # 29
 
-continueStatement -> __continue __;
+breakStatement -> __break __;
     # 30
 
-returnStatement -> __return __;
+continueStatement -> __continue __;
     # 31
 
-returnStatement -> __return expression __;
+returnStatement -> __return __;
     # 32
 
-IfStatement -> __if __( simpleExpression __) Statement ElifStat
+returnStatement -> __return expression __;
     # 33
 
-ElifStat -> __eof
+IfStatement -> __if __( simpleExpression __) Statement ElifStat
     # 34
 
-ElifStat -> __elif __( simpleExpression __) Statement ElifStat
+ElifStat -> __eof
     # 35
 
-ElifStat -> __else Statement
+ElifStat -> __elif __( simpleExpression __) Statement ElifStat
     # 36
 
-WhileStatement -> __while __( simpleExpression __) Statement
+ElifStat -> __else Statement
     # 37
 
-CompoundStatement -> __{ localDeclarations statementList __}
+WhileStatement -> __while __( simpleExpression __) Statement
     # 38
 
+
+CompoundStatement -> __{ localDeclarations statementList __}
+    # 39
+
+
 localDeclarations -> localDeclarations varDeclaration
-    #39
+    # 40
+    # add to symbol table
 
 localDeclarations -> varDeclaration 
-    # 40
+    # 41
+    # add to symbol table
 
 localDeclarations -> __eof
-    # 41
-
-statementList -> statementList Statement
     # 42
 
-statementList -> __eof
+
+statementList -> statementList Statement
     # 43
 
-ExpressionStatement -> expression __;
+statementList -> __eof
     # 44
 
-ExpressionStatement -> __;
+ExpressionStatement -> expression __;
     # 45
 
-expression -> mutable __= expression
+ExpressionStatement -> __;
     # 46
 
-expression -> mutable __+= expression
+expression -> mutable __= expression
     # 47
 
-expression -> mutable __-= expression
+expression -> mutable __+= expression
     # 48
 
-expression -> mutable __*= expression
+expression -> mutable __-= expression
     # 49
 
-expression -> mutable __/= expression
+expression -> mutable __*= expression
     # 50
 
-expression -> mutable __++
+expression -> mutable __/= expression
     # 51
 
-expression -> mutable __--
+expression -> mutable __++
     # 52
 
-expression -> simpleExpression 
+expression -> mutable __--
     # 53
 
-simpleExpression -> simpleExpression __|| andExpression
+expression -> simpleExpression 
     # 54
 
-simpleExpression -> andExpression
+simpleExpression -> simpleExpression __|| andExpression
     # 55
 
-andExpression -> andExpression __&& relExpression
+simpleExpression -> andExpression
     # 56
 
-andExpression -> relExpression
+andExpression -> andExpression __&& relExpression
     # 57
 
-relExpression -> sumExpression relop sumExpression
+andExpression -> relExpression
     # 58
 
-relExpression -> sumExpression
+relExpression -> sumExpression relop sumExpression
     # 59
 
-sumExpression -> sumExpression sumop term
+relExpression -> sumExpression
     # 60
 
-sumExpression -> term
+sumExpression -> sumExpression sumop term
     # 61
 
-term -> term mulop unaryExpression 
+sumExpression -> term
     # 62
 
-term -> unaryExpression
+term -> term mulop unaryExpression 
     # 63
 
-relop -> __<=
+term -> unaryExpression
     # 64
 
-relop -> __<
+relop -> __<=
     # 65
 
-relop -> __>
+relop -> __<
     # 66
 
-relop -> __>=
+relop -> __>
     # 67
 
-relop -> __==
+relop -> __>=
     # 68
 
-relop -> __!=
+relop -> __==
     # 69
 
-sumop -> __+
+relop -> __!=
     # 70
 
-sumop -> __-
+sumop -> __+
     # 71
 
-mulop -> __*
+sumop -> __-
     # 72
 
-mulop -> __/
+mulop -> __*
     # 73
 
-mulop -> __%
+mulop -> __/
     # 74
 
-unaryExpression -> unaryop factor 
+mulop -> __%
     # 75
 
-unaryExpression -> factor
+unaryExpression -> unaryop factor 
     # 76
 
-unaryop -> __-
+unaryExpression -> factor
     # 77
 
-unaryop -> __*
+unaryop -> __-
     # 78
 
-unaryop -> __&
+unaryop -> __*
     # 79
 
-unaryop -> __!
+unaryop -> __&
     # 80
 
-factor -> mutable
+unaryop -> __!
     # 81
 
-factor -> immutable
+factor -> mutable
     # 82
+
+factor -> immutable
+    # 83
 
 #=========================================mutalbe/immutable======================================================
 mutable -> __id
-    # 83
+    # 84
+    # return var_info
 
 mutable -> mutable __[ expression __]
-    # 84
+    # 85
+    # return var_info
 
 immutable -> __( expression __) 
-    # 85
-
-immutable -> Call
     # 86
 
-immutable -> constant
+immutable -> Call
     # 87
 
-Call -> __id __( args __)
+immutable -> constant
     # 88
 
-args -> argList
+Call -> __id __( args __)
     # 89
+
+args -> argList
+    # 90
     
 args -> __eof
-    # 90
-
-argList -> argList __, expression
     # 91
 
-argList -> expression
+argList -> argList __, expression
     # 92
 
-constant -> __number 
+argList -> expression
     # 93
 
 constant -> __number 
     # 94
+    # type : int, val = number
 
 constant -> __true
     # 95
+    # type : int, val = 1
 
 constant -> __false
     # 96
+    # type : int, val = 0

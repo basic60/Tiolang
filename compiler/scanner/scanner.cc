@@ -13,7 +13,7 @@ namespace tio
     #define MEET_OPERATOR(c) ((c) == '+' || (c) == '-' || (c) == '*' || (c) == '/' || (c) == '.' || (c) == ','\
                             || (c) == '>' || (c) == '<' || (c) == '!' || (c) == '=' || (c) == '&' || (c) == '|' || (c) == '%')
     Scanner::Scanner() {
-        keyword_set = {"int", "char", "void", "long", "return", "if", "while", "continue", "break"
+        keyword_set = {"int", "char", "void", "long", "return", "if", "while", "continue", "break",
                        "true", "false", "else", "elif"};
     }
 
@@ -164,7 +164,7 @@ namespace tio
         if(s != "") {
             switch (state) {
             case dfa_state::id:
-                tokens.push({TOKEN_ID, s, line});
+                tokens.push({keyword_set.count(s) ? TOKEN_KEYWORD : TOKEN_ID , s, line});
                 break;
             case dfa_state::number:
                 tokens.push({TOKEN_NUMBER, s, line});

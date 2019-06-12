@@ -181,28 +181,28 @@ namespace tio
 
         // ====================================TEST======================================
         //Print All the automaton states. 
-        for(int i = 0; i < states.size(); i++) {
-            cout<<i<<" : "<<endl;
-            for(auto j : states[i].head) {
-                cout<<j<<endl;
-            }
+        // for(int i = 0; i < states.size(); i++) {
+        //     cout<<i<<" : "<<endl;
+        //     for(auto j : states[i].head) {
+        //         cout<<j<<endl;
+        //     }
 
-            for(auto j : states[i].closure) {
-                cout<<j<<endl;
-            }
-        }
+        //     for(auto j : states[i].closure) {
+        //         cout<<j<<endl;
+        //     }
+        // }
 
         //Print the Action table:
-        cout<<endl<<"Action:"<<endl;
-        for(auto &i : Action ) {
-            cout<<i.first.first<<", "<<i.first.second.raw<<": "<<i.second.first<<" "<<i.second.second<<endl;
-        }
+        // cout<<endl<<"Action:"<<endl;
+        // for(auto &i : Action ) {
+        //     cout<<i.first.first<<", "<<i.first.second.raw<<": "<<i.second.first<<" "<<i.second.second<<endl;
+        // }
 
         //Print the Goto table:
-        cout<<"Goto:"<<endl;
-        for(auto &i : Goto ) {
-            cout<<i.first.first<<", "<<i.first.second.raw<<": "<<i.second<<endl;
-        }
+        // cout<<"Goto:"<<endl;
+        // for(auto &i : Goto ) {
+        //     cout<<i.first.first<<", "<<i.first.second.raw<<": "<<i.second<<endl;
+        // }
     }
 
     void LRAutomaton::cal_first(const symbol& sb) {

@@ -12,9 +12,16 @@ namespace tio
 {
     class LRParser {
     private:
+        std::vector<std::string> code;
         std::shared_ptr<std::vector<lritem>> items;
         LRAutomaton atm;
         SymbolTable sbtable;
+        FuncTable ftable;
+        int entry_point;
+        
+        std::string type_suffix(const type_info& tp);
+        std::string asmc(std::string cmd, const type_info& tp);
+        int raw_type_size(const type_info& tp);
     public:
         int load_grammer(const char* fpath);
         int generate_code(std::shared_ptr<Scanner> sc, std::string fpath);
