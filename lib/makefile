@@ -8,10 +8,9 @@ strhelperObj=$(patsubst %.cc,%.o,$(strhelperSrc))
 libTioLog=libtiolog.a
 libStrHelper=libstrhelper.a
 
-
 all: $(tiologObj) $(strhelperObj) link
 
-link:$(tiologObj)
+link:$(tiologObj) $(strhelperObj)
 	$(AR) rvs $(libTioLog) $(tiologObj)
 	$(AR) rvs $(libStrHelper) $(strhelperObj)
 

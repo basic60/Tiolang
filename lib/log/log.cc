@@ -2,7 +2,7 @@
 #include<iostream>
 #include<cstring>
 using namespace std;
-namespace tio
+namespace logger
 {
     ostream& GlobalLogger::get_output_stream(const char* para) {
         if(!strcmp(para,"ERROR")) {

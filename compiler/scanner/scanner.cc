@@ -4,6 +4,7 @@
 #include"scanner.h"
 #include"token.h"
 #include"log/log.h"
+using namespace logger;
 using namespace std;
 namespace tio
 {

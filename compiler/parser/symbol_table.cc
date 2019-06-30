@@ -7,6 +7,7 @@
 #include<memory>
 #include<deque>
 using namespace std;
+using namespace logger;
 namespace tio
 {
     type_info::type_info(string tn, int pcnt, const deque<int>& rk):

@@ -4,6 +4,7 @@
 #include<iostream>
 #include<exception>
 #include"log/log.h"
+using namespace logger;
 namespace tio
 {
     #define CAST_EXP_EMPTY 1

@@ -8,6 +8,7 @@
 #include"symbol.h"
 #include"lrautomaton.h"
 #include"log/log.h"
+using namespace logger;
 using namespace std;
 namespace tio
 {

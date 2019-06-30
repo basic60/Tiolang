@@ -10,6 +10,7 @@
 #include"log/log.h"
 #include"str_helper/str_helper.h"
 #include"parser_aux.h"
+using namespace logger;
 using namespace std;
 namespace tio
 {
@@ -596,7 +597,6 @@ namespace tio
                         code.push_back("pushi logr");
                         push_smb.data = type_info("int", 0, deque<int>());
                         break;
-                        break;
                     }
                     case 54:  // expression -> simpleExpression 
                         push_smb.data = line[line.size() -1].data;
@@ -666,7 +666,7 @@ namespace tio
                                 code.push_back(asmc("sub", tpl) + " ax, bx");
                             }
 
-                            code.push_back(asmc("push", tpl) + "ax");
+                            code.push_back(asmc("push", tpl) + " ax");
                             push_smb.data = tpl;
                         }
                         break;
@@ -727,6 +727,12 @@ namespace tio
                         // 类型相等赋值
                         break;
                     }
+                    case 32:    // returnStatement -> __return __;
+                        code.push_back("ret");
+                        break;
+                    case 33:    // returnStatement -> __return expression __;
+                        code.push_back(asmc("pop", anytp_cast<type_info>(line[line.size() - 2].data)) + " ax");
+                        break;
                     default:
                         break;
                     }

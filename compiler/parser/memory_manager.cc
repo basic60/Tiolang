@@ -2,6 +2,7 @@
 #include"log/log.h"
 #include<iostream>
 using namespace std;
+using namespace logger;
 namespace tio
 {
     long long MemoryManager::static_mem_start = 0;

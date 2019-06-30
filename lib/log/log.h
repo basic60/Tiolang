@@ -2,7 +2,7 @@
 #define __TIO_LOG
 #include<iostream>
 #include<string>
-namespace tio
+namespace logger
 {
     #define LOG(TP) GlobalLogger::get_output_stream(#TP) <<"["<<__FILE__<<":"<<__LINE__<<"] "<<#TP<<": "  
 
