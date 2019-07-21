@@ -8,7 +8,7 @@ CXXFLAGS=-I../lib/ -std=c++17 -g -c -o
 all: $(vmObj) link 
 
 link:$(vmObj)
-	$(CC) $(vmObj) ../lib/libtiolog.a -o $(executableFile)
+	$(CC) $(vmObj) ../lib/libtiolog.a ../lib/libstrhelper.a -o $(executableFile)
 
 %.o:%.cc
 	$(CC) $(CXXFLAGS) $@ $<

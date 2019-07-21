@@ -23,7 +23,7 @@ namespace tio
         string s;
         char c;
         int line = 1;bool in_comment = false;
-        while (~(c=fgetc(fp))) {
+        while (~(c = fgetc(fp))) {
             if(c == '\n') {
                 line++;
                 in_comment = false;

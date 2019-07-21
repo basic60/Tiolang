@@ -36,4 +36,11 @@ namespace tiovm
         uint64* ptr = (uint64*)this->data;
         ptr[0] = val;
     }
+
+    const unordered_set<string> Register::usable_regs = {"rax", "rbx", "rcx", "rdx", "rbp", "r0", "r1"
+            "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9"};
+
+    bool Register::valid_reg(string rname) {
+        return usable_regs.count(rname);
+    }
 }   
