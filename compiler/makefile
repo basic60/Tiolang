@@ -3,7 +3,7 @@ CC=g++
 cppSrc=$(shell find . -name "*.cc")
 cppObj=$(patsubst %.cc,%.o,$(cppSrc))
 executableFile=tio
-CXXFLAGS=-I../lib/ -std=c++17 -g -c -o 
+CXXFLAGS=-I../lib/ -std=c++17 -g -c -O2 -o 
 
 all: $(cppObj) link 
 

@@ -8,17 +8,23 @@ namespace tiovm
     class Register {
     private:
         uint8* data;
-        const static std::unordered_set<std::string> usable_regs; 
     public:
         Register();
+        Register(const Register& reg);
+        Register(Register&& reg);
+        Register& operator=(const Register& reg);
+        Register& operator=(Register&& reg);
         ~Register();
-        uint8 get8();
-        uint32 get32();
-        uint64 get64();
-        void set8(uint8 val);
-        void set32(uint32 val);
-        void set64(uint64 val);
+        int8 get8();
+        int32 get32();
+        int64 get64();
+        int64 get_by_size(int sz);
+        void set8(int8 val);
+        void set32(int32 val);
+        void set64(int64 val);
+        void set_by_size(int64 val, int sz);
         static bool valid_reg(std::string name);
+        const static std::unordered_set<std::string> usable_regs; 
     };
 }
 #endif

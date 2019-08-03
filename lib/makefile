@@ -15,7 +15,7 @@ link:$(tiologObj) $(strhelperObj)
 	$(AR) rvs $(libStrHelper) $(strhelperObj)
 
 %.o:%.cc
-	$(CC) -std=c++17 -g -c -o $@ $<
+	$(CC) -std=c++17 -g -c -O2 -o $@ $<
 
 clean:
 	rm $(tiologObj) $(libTioLog) $(libStrHelper) $(strhelperObj)

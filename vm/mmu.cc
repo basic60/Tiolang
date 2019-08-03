@@ -86,6 +86,17 @@ namespace tiovm
         }
     }
 
+    uint64 MMU::get_by_size(uint64 addr, int sz) {
+        if(sz == 1) {
+            return get8(addr);
+        } else if(sz == 4) {
+            return get32(addr);
+        } else if(sz == 8) {
+            return get64(addr);
+        }
+        return 0;
+    } 
+
     void MMU::set8(uint64 addr, uint8 val) {
         int pid = getid(addr);
         if(!page_ent.count(pid)) {
@@ -152,6 +163,16 @@ namespace tiovm
         } else {
             uint64* ptr = (uint64*)(page_ent[pid] + offset);
             ptr[0] = val;
+        }
+    }
+
+    void MMU::set_by_size(uint64 addr, uint64 val, int sz) {
+        if(sz == 1) {
+            set8(addr, val);
+        } else if(sz == 4) {
+            set32(addr, val);
+        } else if(sz == 8) {
+            set64(addr, val);
         }
     }
 }

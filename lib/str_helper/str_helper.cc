@@ -42,4 +42,5 @@ namespace str
         ret.push_back(tmp);
         return ret;
     }
-} // tio
+
+} // strP

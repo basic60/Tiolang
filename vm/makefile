@@ -3,7 +3,7 @@ CC=g++
 vmSrc=$(shell find . -name "*.cc")
 vmObj=$(patsubst %.cc,%.o,$(vmSrc))
 executableFile=tiovm
-CXXFLAGS=-I../lib/ -std=c++17 -g -c -o 
+CXXFLAGS=-I../lib/ -std=c++17 -g -c -O2 -o 
 
 all: $(vmObj) link 
 
