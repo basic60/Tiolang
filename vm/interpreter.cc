@@ -52,6 +52,15 @@ namespace tiovm
         }
     }
 
+    int64 Interpreter::get_operand_val(const Operand& op, bool addr_flag) {
+        int64 val = 0;
+        if(op.type == Operand::opd_type::number) {
+            val = addr_flag ? mmu.get64(stol(op.raw_val, 0, 0)) : stol(op.raw_val, 0, 0);
+        } else {
+            val = addr_flag ? mmu.get64(regs[op.raw_val].get64()) : regs[op.raw_val].get64();
+        }
+    }
+
     void Interpreter::execute(string fname) {
         pre_process(fname);
         uint64 pc = 0;                      // program counter
@@ -76,70 +85,30 @@ namespace tiovm
 
             if(cmd.name == "mov" && op_cnt == 3) {
                 uint64 target_addr = 0;
-                uint64 val = 0;
+                int64 val = get_operand_val(opr, raddr);
                 if(opl.type == Operand::opd_type::number) {
                     if(!laddr) {
                         LOG(ERROR)<<"Left operand isn't a valid address!"<<endl;
                         throw -1;
                     }
                     target_addr = stol(opl.raw_val, 0, 0);
-                    
-                    if(opr.type == Operand::opd_type::number) {
-                        val = stol(opr.raw_val, 0, 0);
-                        if(raddr) {
-                            val = mmu.get64(val);
-                        }
-                    } else {
-                        val = regs[opr.raw_val].get64();
-                    }
                     mmu.set_by_size(target_addr, val, cmd.vsize);
                 } else {
                     Register& regl = regs[opl.raw_val];
                     if(!laddr) {
-                        if(opr.type == Operand::opd_type::reg) {
-                            if(!raddr) {
-                                regl.set_by_size(regs[opr.raw_val].get64(), cmd.vsize);
-                            } else {
-                                regl.set_by_size(mmu.get64(regs[opr.raw_val].get64()), cmd.vsize);
-                            }
-                        } else {
-                            if(!raddr) {
-                                regl.set_by_size(stol(opr.raw_val, 0, 0), cmd.vsize);
-                            } else {
-                                regl.set_by_size(mmu.get64(stol(opr.raw_val, 0, 0)), cmd.vsize);
-                            }
-                        }
+                        regl.set_by_size(val, cmd.vsize);
                     } else {
-                        if(opr.type == Operand::opd_type::reg) {
-                            if(!raddr) {
-                                mmu.set_by_size(regl.get64(), regs[opr.raw_val].get64(), cmd.vsize);
-                            } else {
-                                mmu.set_by_size(regl.get64(), mmu.get64(regs[opr.raw_val].get64()), cmd.vsize);
-                            }
-                        } else {
-                            if(!raddr) {
-                                mmu.set_by_size(regl.get64(), stol(opr.raw_val, 0, 0), cmd.vsize);
-                            } else {
-                                mmu.set_by_size(regl.get64(), mmu.get64(stol(opr.raw_val, 0, 0)), cmd.vsize);
-                            }
-                        }
+                        mmu.set_by_size(regl.get64(), val, cmd.vsize);
                     }
                 }
                 ++pc;
             } else if(cmd.name == "push" && op_cnt == 2) {
-                uint64 val = 0;
-                if(opl.type == Operand::opd_type::number) {
-                    val = laddr ? mmu.get64(stol(opl.raw_val, 0, 0)) : stol(opl.raw_val, 0, 0);
-                } else {
-                    Register& reg = regs[opl.raw_val];
-                    val = laddr ? mmu.get64(reg.get64()) : reg.get64();
-                }
+                int64 val = get_operand_val(opl, laddr);
                 regs["rsp"].set64(regs["rsp"].get64() - cmd.vsize);
-
                 mmu.set_by_size(regs["rsp"].get64(), val, cmd.vsize);
                 ++pc;
             } else if(cmd.name == "pop" && op_cnt == 2) {
-                uint64 val = mmu.get64(regs["rsp"].get64());
+                int64 val = mmu.get64(regs["rsp"].get64());
                 if(opl.type == Operand::opd_type::number) {
                     if(!laddr) {
                         LOG(ERROR)<<"Cann't pop value to a number!"<<endl;
@@ -168,20 +137,70 @@ namespace tiovm
                 }
                 pc++;
             } else if(cmd.name == "cmp" && op_cnt == 3) {
+                int64 vl = get_operand_val(opl, laddr), vr = get_operand_val(opr, raddr);
+                int64 res = vl - vr;
+                if(res < 0) {
+                    regs["sf"].set64(-1);
+                } else if(res == 0) {
+                    regs["sf"].set64(0);
+                } else if(res > 0) {
+                    regs["sf"].set64(1);
+                }
                 pc++;
-            } else if(cmd.name == "jmp" && op_cnt == 2) {
+            } else if((cmd.name == "jmp" || cmd.name == "jne" || cmd.name == "je"
+                    || cmd.name == "jg" || cmd.name == "jge" || cmd.name == "jl"
+                    || cmd.name == "jle") && op_cnt == 2) {
                 if(laddr) {
                     LOG(ERROR)<<"Error command format!"<<endl;
                     throw -1;
                 }
-                if(opl.type == Operand::opd_type::number) {
-                    pc = stol(opl.raw_val, 0, 0);
+                if(jmp_judge[cmd.name](regs["sf"].get64())) {
+                    pc = get_operand_val(opl, laddr);
                 } else {
-                    pc = regs[opl.raw_val].get64();
+                    pc++;
                 }
-            } else if(cmd.name == "add" && op_cnt == 3) {
-            } else if(cmd.name == "mul" && op_cnt == 3) {
-            } else if(cmd.name == "div" && op_cnt == 3) {
+            } else if(cmd.name == "je" && op_cnt == 2) {
+                if(laddr) {
+                    LOG(ERROR)<<"Error command format!"<<endl;
+                    throw -1;
+                }
+                uint64 jmp_add = get_operand_val(opl, laddr);
+                if(regs["sf"].get64() == 0) {
+                    pc = jmp_add;
+                } else {
+                    pc++;
+                }
+            } else if(cmd.name == "jne" && op_cnt == 2) {
+                if(laddr) {
+                    LOG(ERROR)<<"Error command format!"<<endl;
+                    throw -1;
+                }
+                uint64 jmp_add = get_operand_val(opl, laddr);
+                if(regs["sf"].get64() != 0) {
+                    pc = jmp_add;
+                } else {
+                    pc++;
+                } 
+            } else if((cmd.name == "add" || cmd.name == "mul" || cmd.name == "div")
+                     && op_cnt == 3) {
+                if(laddr || opl.type != Operand::opd_type::reg) {
+                    LOG(ERROR)<<"Left operand of command: "<<ins.raw_command<<" must be a register!"<<endl;
+                    throw -1;
+                }
+                int64 source = get_operand_val(opl, laddr);
+                int64 val = get_operand_val(opr, raddr);
+                if(cmd.name == "add") {
+                    regs[opl.raw_val].set64(source + val);
+                } else if(cmd.name == "mul") {
+                    regs[opl.raw_val].set64(source * val);
+                } else if(cmd.name == "div") {
+                    if(val == 0) {
+                        LOG(ERROR)<<"Cann't divide 0."<<endl;
+                        throw -1;
+                    }
+                    regs[opl.raw_val].set64(source / val);
+                }
+                pc++;
             } else {
                 LOG(ERROR)<<"Unknown command: " + ins.raw_command << ". Please check the foramt." << endl;
                 throw -1;
@@ -194,6 +213,14 @@ namespace tiovm
             regs[name];
         }
         regs["rsp"].set64(4294967296); // 4GB
+
+        jmp_judge["je"] = [](int x){return x == 0;};
+        jmp_judge["jne"] = [](int x){return x != 0;};
+        jmp_judge["jg"] = [](int x){return x > 0;};
+        jmp_judge["jge"] = [](int x){return x >= 0;};
+        jmp_judge["jl"] = [](int x){return x < 0;};
+        jmp_judge["jle"] = [](int x){return x <= 0;};
+        jmp_judge["jmp"] = [](int x){return true;};
     }
 
     Command Command::parse_cmd(const string& cmd) {

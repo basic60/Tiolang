@@ -3,6 +3,7 @@
 #include"mmu.h"
 #include<queue>
 #include<unordered_map>
+#include<functional>
 #include"reg.h"
 namespace tiovm
 {
@@ -39,8 +40,10 @@ namespace tiovm
         MMU mmu;
         std::unordered_map<std::string, Register> regs;
         std::vector<Instruction> instructions;
+        std::unordered_map<std::string, std::function<bool(int)>> jmp_judge;
 
         void pre_process(std::string fname);
+        int64 get_operand_val(const Operand& op, bool addr);
     public:
         Interpreter();
         void execute(std::string fname);
