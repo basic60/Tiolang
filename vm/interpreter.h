@@ -4,6 +4,7 @@
 #include<queue>
 #include<unordered_map>
 #include<functional>
+#include<stack>
 #include"reg.h"
 namespace tiovm
 {

@@ -6,7 +6,6 @@ namespace tio
     private:
         static long long static_mem_start;
         static long long static_mem_top;
-        static long long stack_top;
     public:
         static long long alloc_static(int size);
     };

@@ -17,7 +17,7 @@ namespace tio
 
 
 
-    struct type_info {
+    struct type_info {      //  符号表记录类型数据基类
         std::string type_name;
         int ptr_cnt;
         std::deque<int> rank;
@@ -32,15 +32,15 @@ namespace tio
         std::string to_string() const;
     };
 
-    struct var_info : public type_info {
+    struct var_info : public type_info {      //  符号表存储的变量信息。
         long long addr;
-        int scope;
+        int scope;      // 全局变量的地址是绝对地址，局部变量的地址是距离rbp的偏移。
         int proc_cnt;
         var_info(const VarUnit& vu, long long addr, int scp);
         var_info();
     };
 
-    struct func_info : public type_info {
+    struct func_info : public type_info {      //  符号表存储的函数信息。
         int entry_line;
         VarList para_lst;
         func_info(const FuncUnit& fu);

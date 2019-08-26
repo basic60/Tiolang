@@ -25,7 +25,7 @@ namespace tio
         }
         
         arr_size = 1;
-        for(const auto& i : rank){
+        for(const auto& i : rank) {
             arr_size *= i;
         }
     }

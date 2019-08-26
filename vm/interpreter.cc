@@ -37,6 +37,7 @@ namespace tiovm
             }
 
             Instruction ins;
+            cout<<line<<" "<<split(line, ' ').size()<<endl;
             ins.raw_command = line;
             ins.op_cnt = op_cnt;
             ins.laddr = laddr;
@@ -136,7 +137,7 @@ namespace tiovm
                     cout<<opl.raw_val<<": "<<regs[opl.raw_val].get_by_size(cmd.vsize)<<endl;
                 }
                 pc++;
-            } else if(cmd.name == "cmp" && op_cnt == 3) {
+            } else if(cmd.name == "cmp" && op_cnt == 3) { 
                 int64 vl = get_operand_val(opl, laddr), vr = get_operand_val(opr, raddr);
                 int64 res = vl - vr;
                 if(res < 0) {
@@ -201,6 +202,21 @@ namespace tiovm
                     regs[opl.raw_val].set64(source / val);
                 }
                 pc++;
+            } else if(cmd.name == "call" && op_cnt == 2) {
+                if(laddr) {
+                    LOG(ERROR)<<"Command format error!"<<endl;
+                    throw -1;
+                }
+                uint64 target_addr = get_operand_val(opl, laddr);
+                regs["rsp"].set64(regs["rsp"].get64() - 8);
+                mmu.set64(regs["rsp"].get64(), pc + 1);         // push pc
+                regs["rsp"].set64(regs["rsp"].get64() - 8);
+                mmu.set64(regs["rbp"].get64(), pc + 1);         // push rbp
+                pc = target_addr;
+            } else if(cmd.name == "ret" && op_cnt == 1) {
+                pc = mmu.get64(regs["rbp"].get64() - 8);
+                regs["rsp"].set64(regs["rbp"].get64() - 16);      // skip the rbp and pc
+                regs["rbp"].set64(mmu.get64(regs["rbp"].get64()));
             } else {
                 LOG(ERROR)<<"Unknown command: " + ins.raw_command << ". Please check the foramt." << endl;
                 throw -1;
@@ -244,7 +260,7 @@ namespace tiovm
             try {
                 stol(opd, 0, 0);
             } catch(...) {
-                LOG(ERROR)<<"Not invalid number!"<<endl;
+                LOG(ERROR)<<"Not invalid number: "<<opd<<endl;
                 throw -1;
             }
             ret.type = opd_type::number;

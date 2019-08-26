@@ -4,6 +4,7 @@
 #include<memory>
 #include<string>
 #include<sstream>
+#include<stdarg.h>
 #include"../scanner/scanner.h"
 #include"../scanner/token.h"
 #include"lrparser.h"
@@ -68,11 +69,11 @@ namespace tio
     }
 
     int LRParser::generate_code(shared_ptr<Scanner> sc, string outpath) {
-        // ofstream ofs(outpath);
-        // if(ofs.fail()) {
-        //     LOG(ERROR)<<"Open output file: "<<outpath<<" failed!"<<endl;
-        //     throw -1;
-        // }
+        ofstream ofs(outpath);
+        if(ofs.fail()) {
+            LOG(ERROR)<<"Open output file: "<<outpath<<" failed!"<<endl;
+            throw -1;
+        }
 
         LOG(INFO)<<"Start generate code!"<<endl;
         if(!items->size()) {
@@ -107,13 +108,13 @@ namespace tio
                 sb.data = tk.raw_str;
             }
 
-            if(!atm.Action.count(make_pair(s.top(), sb)) &&\
+            if(!atm.Action.count(make_pair(s.top(), sb)) &&
              !atm.Action.count(make_pair(s.top(), symbol(SYMBOL_TERMINAL, "eof")))) {
                 LOG(ERROR)<<"Unexcepted token: "<<sb.raw<<" Line: "<<tk.line_num<<endl;
                 return -1;
             } else {
-                char act; 
-                int nid; 
+                char act; // action, 's' means shift and 'r' means reduce
+                int nid;  // Shift to state i or reduce by item[nid -1]
                 if(atm.Action.count(make_pair(s.top(), sb))) {
                     act = atm.Action[make_pair(s.top(), sb)].first;
                     nid = atm.Action[make_pair(s.top(), sb)].second;
@@ -123,16 +124,15 @@ namespace tio
                     skip = true;
                 }
 
-                if(act == 's') {
+                if(act == 's') {    //   shift
                     // LOG(INFO)<<"s"<<" "<<nid<<" "<<endl;
                     s.push(nid);
                     line.push_back(sb);
-                } else if(act == 'r') {
-                    // LOG(INFO)<<"r "<<nid<<"  "<<(*items)[nid - 1]<<endl;
+                } else if(act == 'r') {     // reduce
+                    LOG(INFO)<<"r "<<nid<<"  "<<(*items)[nid - 1]<<endl;
                     int cnt = (*items)[nid - 1].body.size();
 
                     symbol push_smb = (*items)[nid - 1].head;
-                    // cout<<nid<<endl;
                     switch (nid) {
                     case 11: // TypeSpecifier -> __int
                     case 12: // TypeSpecifier -> __long
@@ -140,13 +140,13 @@ namespace tio
                     case 14: // TypeSpecifier -> __void
                         push_smb.data = line[line.size() - 1].raw;
                         break;
-                    case 16: // Pointer -> __eof
+                    case 16: // Pointer -> __eof   Pointer中存储整数，记录指针个数。
                         push_smb.data = 0;
                         break;
                     case 15: // Pointer -> Pointer __*
                         push_smb.data = anytp_cast<int>(line[line.size()-2].data) + 1;
                         break;
-                    case 10: // Array -> __eof
+                    case 10: // Array -> __eof     Array存储deque<int>，记录数组维度
                         push_smb.data = deque<int>();
                         break;
                     case 9: { // Array -> Array __[ __number __]
@@ -155,9 +155,9 @@ namespace tio
                         push_smb.data = rktmp;
                         break;
                     }
-                    case 8: // varDeclID -> Pointer __id Array
-                        push_smb.data = VarUnit(anytp_cast<int>(line[line.size() - 3].data),\
-                                                anytp_cast<string>(line[line.size() - 2].data),\
+                    case 8: // varDeclID -> Pointer __id Array     VarUnit 中记录了指针个数，变量名和数组维度。  
+                        push_smb.data = VarUnit(anytp_cast<int>(line[line.size() - 3].data),  
+                                                anytp_cast<string>(line[line.size() - 2].data),
                                                 anytp_cast<deque<int>>(line[line.size() - 1].data));
                         break;
                     case 7: {  // varDeclList -> varDeclID
@@ -212,58 +212,47 @@ namespace tio
                         push_smb.data = vlist;
                         break;
                     }
-                    case 19: {  // params -> paraList 构建局部符号表
+                    case 20:    //  params -> __eof
+                    case 19: {  // params -> paraList  初始化局部符号表。参数加入符号表。生成函数初始化代码。
                         loc_table.reset(new SymbolTable());
                         loc_table->set_prev_table(&sbtable);
-                        
-                        code.push_back("pushl sp");
+                        loc_offset = 0;
+
+                        // funDeclaration -> TypeSpecifier Pointer __id __( paraList 符号表中添加函数
+                        code.push_back(format_command("mov %s , %s", 8, "rbp", "rsp"));    // 修改rbp为栈顶，每个函数的第一行语句。
                         if(anytp_cast<string>(line[line.size() - 3].data) == "main") {
                             entry_point = code.size() - 1;
                         }
-
-                        // funDeclaration -> TypeSpecifier Pointer __id __( paraList 符号表中添加函数
-                        ftable.add_func(FuncUnit(anytp_cast<string>(line[line.size() - 3].data), 
-                                                  anytp_cast<string>(line[line.size() - 5].data),
-                                                  anytp_cast<int>(line[line.size() - 4].data),
-                                                  code.size() - 1,
-                                                  anytp_cast<VarList>(line[line.size() - 1].data)));
-                        code.push_back("mov bp, sp");
-                        
-                        int offset = 16; // skip bp and ip in the stack, total 16 bytes
-                        for(const auto& i : anytp_cast<VarList>(line[line.size() - 1].data)) {
-                            if(i.type_name == "void" && i.ptr_cnt == 0) {
-                                LOG(ERROR)<<"Variable cann't be void!"<<endl;
-                                throw -1;
+                        if(nid == 19) {
+                            ftable.add_func(FuncUnit(anytp_cast<string>(line[line.size() - 3].data), 
+                                anytp_cast<string>(line[line.size() - 5].data),
+                                anytp_cast<int>(line[line.size() - 4].data),
+                                code.size() - 1,                         // 　函数入口点
+                                anytp_cast<VarList>(line[line.size() - 1].data)));                        
+                            int offset = 16; // skip pc and rbp in the stack, total 16 bytes
+                            for(const auto& i : anytp_cast<VarList>(line[line.size() - 1].data)) {
+                                if(i.type_name == "void" && i.ptr_cnt == 0) {
+                                    LOG(ERROR)<<"Variable cann't be void!"<<endl;
+                                    throw -1;
+                                }
+                                loc_table->add_to_table_loc(i, offset); 
+                                if(i.ptr_cnt) {
+                                    offset += 8;
+                                } else if(i.type_name == "char") {
+                                    offset += 1;
+                                } else if(i.type_name == "int") {
+                                    offset += 4;
+                                } else if(i.type_name == "long") {
+                                    offset += 8;
+                                }
                             }
-                            if(i.ptr_cnt) {
-                                offset += 8;
-                            } else if(i.type_name == "char") {
-                                offset += 1;
-                            } else if(i.type_name == "int") {
-                                offset += 4;
-                            } else if(i.type_name == "long") {
-                                offset += 8;
-                            }
-                            loc_table->add_to_table_loc(i, offset);
+                        } else {
+                            ftable.add_func(FuncUnit(anytp_cast<string>(line[line.size() - 3].data), 
+                                anytp_cast<string>(line[line.size() - 5].data),
+                                anytp_cast<int>(line[line.size() - 4].data),
+                                code.size() - 1,                         // 　函数入口点
+                                VarList() ));   
                         }
-                        break;
-                    }
-                    case 20: { //  params -> __eof
-                        loc_table.reset(new SymbolTable());
-                        loc_table->set_prev_table(&sbtable);
-                        
-                        code.push_back("pushl sp");
-                        if(anytp_cast<string>(line[line.size() - 3].data) == "main") {
-                            entry_point = code.size() - 1;
-                        }
-
-                        // funDeclaration -> TypeSpecifier Pointer __id __( paraList 符号表中添加函数
-                        ftable.add_func(FuncUnit(anytp_cast<string>(line[line.size() - 3].data), 
-                                                  anytp_cast<string>(line[line.size() - 5].data),
-                                                  anytp_cast<int>(line[line.size() - 4].data),
-                                                  code.size() - 1,
-                                                  VarList()));
-                        code.push_back("mov bp, sp");
                         break;
                     }
                     case 41: // localDeclarations -> varDeclaration 
@@ -274,51 +263,46 @@ namespace tio
                                 throw -1;
                             }
 
-                            if(i.ptr_cnt) {
-                                loc_offset -= 8 * i.arr_size;
-                                code.push_back("sub sp, " + to_string(8 * i.arr_size));
+                            if(i.ptr_cnt || i.type_name == "long") {
+                                loc_offset -= 8 * i.arr_size;           // loc_offset为距离rbp的偏移
+                                code.push_back(format_command("add %s , %d", 8, "rsp", loc_offset));
                             } else if(i.type_name == "char") {
                                 loc_offset -= 1 * i.arr_size;
-                                code.push_back("sub sp, " + to_string(1 * i.arr_size));
+                                code.push_back(format_command("add %s , %d", 1, "rsp", loc_offset));
                             } else if(i.type_name == "int") {
                                 loc_offset -= 4 * i.arr_size;
-                                code.push_back("sub sp, " + to_string(4 * i.arr_size));
-                            } else if(i.type_name == "long") {
-                                loc_offset -= 8 * i.arr_size;
-                                code.push_back("sub sp, " + to_string(8 * i.arr_size));
-                            } 
+                                code.push_back(format_command("add %s , %d", 4, "rsp", loc_offset));
+                            }
                             loc_table->add_to_table_loc(i, loc_offset);
                         }
                         break;
                     case 94:  // constant -> __number          
-                        code.push_back("pushi " + to_string(anytp_cast<int>(line[line.size() - 1].data))); // constant -> __number
+                        code.push_back(format_command("push %d", 4, anytp_cast<int>(line[line.size() - 1].data)));
                         push_smb.data = type_info("int", 0, deque<int>()); 
                         break;
                     case 95: // constant -> __true              
-                        code.push_back("pushi 1"); 
+                        code.push_back(format_command("push %d", 4, 1));
                         push_smb.data = type_info("int", 0, deque<int>()); 
                         break;
                     case 96: // constant -> __false             
-                        code.push_back("pushi 0"); 
+                        code.push_back(format_command("push %d", 4, 0));
                         push_smb.data = type_info("int", 0, deque<int>());
                         break;
-                    case 88: // immutable -> constant        
+                    case 88: // immutable -> constant    继承类型
                         push_smb.data = line[line.size() - 1].data;                        
                         break;
-                    case 86: // immutable -> __( expression __) 
+                    case 86: // immutable -> __( expression __)    继承类型 
                         push_smb.data = line[line.size() - 2].data;       
                         break;   
                     case 84: { // mutable -> __id               Return var_info
                         var_info vfo = loc_table->get_varinfo(anytp_cast<string>(line[line.size() - 1].data));
-                        if(vfo.rank.size() == 0) {
+                        if(vfo.rank.size() == 0) {  // 不是数组则直接生成代码。
                             if(vfo.scope == SCOPE_GLOBAL) {
-                                code.push_back(asmc("push", vfo) + " " + to_string(vfo.addr)); 
+                                code.push_back(format_command("push @ %l", vfo.type_size, vfo.addr));
                             } else {
-                                if(vfo.addr >= 0) {
-                                    code.push_back(asmc("push", vfo) + " bp+" + to_string(vfo.addr)); 
-                                } else {
-                                    code.push_back(asmc("push", vfo) + " bp" + to_string(vfo.addr)); 
-                                }
+                                code.push_back(format_command("mov %s , %s", 8, "rax", "rbp"));
+                                code.push_back(format_command("add %s , %l", 8, "rax", vfo.addr));
+                                code.push_back(format_command("push @ %l , %l", vfo.type_size, "rax", vfo.addr));
                             }
                         }
                         push_smb.data = vfo;
@@ -328,26 +312,23 @@ namespace tio
                         var_info vfo = anytp_cast<var_info>(line[line.size() - 4].data);
                         vfo.proc_cnt++;
 
-                        int tsz = 1;
-                        code.push_back("movi ax, 0");           // index is stored in ax
-                        if(vfo.ptr_cnt == vfo.rank.size()) {
-                            for(int i = vfo.rank.size() - 1; i >= 0; i--) {
-                                string reg = "r" + to_string(i);
-                                code.push_back("popi " + reg);
-                                code.push_back("mul " + reg + ", " + to_string(tsz));
-                                code.push_back("add ax, " + reg);
-                                tsz *= vfo.rank[i];
+                        if(vfo.ptr_cnt == vfo.rank.size()) {    // 数组维度符合才生成代码。
+                            code.push_back(format_command("mov %s , %d", 4, "rax", 1));           // index is stored in rax
+                            for(int i = vfo.rank.size() - 1; i >= 0; i--) {      // cal the index
+                                code.push_back(format_command("pop %s", 4, "r0"));
+                                code.push_back(format_command("mul %s , %d", 4, "rax", "r0"));
                             }
-                            if(vfo.addr >= 0) {
-                                code.push_back("mov bx, bp+" + to_string(vfo.addr));
-                            } else {
-                                code.push_back("mov bx, bp" + to_string(vfo.addr));
-                            }
-                            code.push_back("mul ax, " + to_string(vfo.type_size));
-                            code.push_back("add bx, ax"); // base address + offset address
-                            code.push_back(asmc("push", vfo) + " @ rbx");
-                        }
 
+                            if(vfo.scope == SCOPE_GLOBAL) {
+                                code.push_back(format_command("mov %s , %l", 8, "rbx", vfo.addr));
+                                code.push_back(format_command("add %s , %d", 4, "rbx", "rax"));
+                            } else {
+                                code.push_back(format_command("mov %s , %s", 8, "rbx", "rbp"));
+                                code.push_back(format_command("add %s , %d", 4, "rbx", vfo.addr));
+                                code.push_back(format_command("add %s , %s", 4, "rbx", "rax"));
+                            }
+                            code.push_back(format_command("push @ %s", vfo.type_size, "rbx"));
+                        }
                         push_smb.data = vfo;
                         break;
                     }
@@ -383,20 +364,15 @@ namespace tio
                             throw -1;
                         }
 
-                        for(int i = 0 ;i != fio.para_lst.size(); i++) { // parameter type check 
+                        for(int i = 0 ;i != fio.para_lst.size(); i++) { // parameter type check  在语法分析的过程中参数已经从右往左进栈。
                             if(!(fio.para_lst[i].type_name == plst[i].type_name && 
                                  fio.para_lst[i].ptr_cnt == plst[i].ptr_cnt)) {
                                 LOG(ERROR)<<"Parameter not match!"<<endl;
                                 throw -1;
                             }
-                            code.push_back(asmc("pop", plst[i]) + " r" + to_string(i));
                         }
 
-                        for(int i = fio.para_lst.size() ;i >= 0; i--) {
-                            code.push_back(asmc("push", plst[i]) + " r" + to_string(i)); // 参数从右往左入栈                        
-                        }
-
-                        code.push_back("call " + to_string(fio.entry_line));
+                        code.push_back(format_command("call %l", 8, fio.entry_line)); // pusn ip; push rbp
 
                         push_smb.data = type_info(fio.type_name, fio.ptr_cnt, deque<int>());
                         break;
@@ -441,59 +417,18 @@ namespace tio
                             }
                         }
 
-                        if(anytp_cast<string>(line[line.size() - 1].data) == "*") {
-                            if(!tp.ptr_cnt) {
-                                LOG(ERROR)<<"Wrong type argument to unary \'*\' "<<endl;
-                                throw -1;
-                            }
-
-                            tp.ptr_cnt--;
-                            code.push_back("popl rax");
-                            if(!tp.ptr_cnt) {
-                                code.push_back(asmc("mov",tp) + " ax,@ ax");
-                                code.push_back(asmc("push",tp) + " ax");
-                                if(tp.type_name == "char") {
-                                    tp.type_size = 1;
-                                } else if(tp.type_name == "int") {
-                                    tp.type_size = 4;
-                                } else if(tp.type_name == "long") {
-                                    tp.type_size = 8;
-                                }
-                            } else {
-                                code.push_back("movl ax, @ ax");
-                                code.push_back("pushl ax");
-                            }
-                        } else if(tp.type_name == "&") {
-                            if(!is_leftval) {
-                                LOG(ERROR)<<"Cann't get the address of a right value!"<<endl;
-                                throw -1;
-                            }
-
-                            code.push_back(asmc("pop", tp) + " rax");    // discard the origin value
-                            if(vfo.scope == SCOPE_GLOBAL) {
-                                code.push_back("pushl " + to_string(vfo.addr));
-                            } else if(vfo.scope == SCOPE_LOCAL) {
-                                if(vfo.addr > 0) {
-                                    code.push_back("pushl bp+" + to_string(vfo.addr));
-                                } else {
-                                    code.push_back("pushl bp" + to_string(vfo.addr));
-                                }
-                            }
-
-                            tp.ptr_cnt++;
-                            tp.type_size = 8;
-                        } else if(anytp_cast<string>(line[line.size() - 1].data) == "-") {
+                        if(anytp_cast<string>(line[line.size() - 1].data) == "-") {
                             if(tp.ptr_cnt) {
                                 LOG(ERROR)<<"Wrong type argument to unary \'-\' "<<endl;
                                 throw -1;
                             }
-                            code.push_back(asmc("mul", tp) + " @ sp, -1");
+                            code.push_back(format_command("mul %s , %d", tp.type_size, "rsp", -1));
                         } else if(anytp_cast<string>(line[line.size() - 1].data) == "!") {
                             if(tp.ptr_cnt) {
                                 LOG(ERROR)<<"Wrong type argument to unary \'!\' "<<endl;
                                 throw -1;
                             }
-                            code.push_back(asmc("not", tp) + " @ sp");
+                            code.push_back(format_command("not %s , %d", tp.type_size, "rsp", -1));
                         }
 
                         if(tp.rank.size()) {
@@ -518,16 +453,16 @@ namespace tio
                             throw -1;
                         }
 
-                        code.push_back(asmc("pop", tp) + " bx");
-                        code.push_back(asmc("pop", tp) + " ax");
+                        code.push_back(format_command("pop %s", tp.type_size, "rbx"));
+                        code.push_back(format_command("pop %s", tp.type_size, "rax"));
                         if(opt == "*") {
-                            code.push_back(asmc("mul", tp) + " ax,bx");
+                            code.push_back(format_command("mul %s , %s", tp.type_size, "rax", "rbx"));
                         } else if(opt == "/") {
-                            code.push_back(asmc("div", tp) + " ax,bx");
+                            code.push_back(format_command("div %s , %s", tp.type_size, "rax", "rbx"));
                         } else if(opt == "%") {
-                            code.push_back(asmc("mod", tp) + " ax,bx");
+                            code.push_back(format_command("mod %s , %s", tp.type_size, "rax", "rbx"));
                         }
-                        code.push_back(asmc("push", tp) + " ax");
+                        code.push_back(format_command("push %s", tp.type_size, "rax"));
 
                         push_smb.data = tp;
                         break;
@@ -551,9 +486,9 @@ namespace tio
                             throw -1;
                         }
 
-                        code.push_back(asmc("pop", tpl) + "bx");
-                        code.push_back(asmc("pop", tpl) + "ax");
-                        code.push_back("cmp ax, bx");
+                        code.push_back(format_command("pop %s", tpr.type_size, "rbx"));
+                        code.push_back(format_command("pop %s", tpl.type_size, "rax"));
+                        code.push_back("cmp rax , rbx");
                         string cmd;
                         if(opt == "==") {
                             cmd = "je ";
@@ -570,18 +505,18 @@ namespace tio
                         }
                         code.push_back(cmd + to_string(code.size() + 2));
 
-                        code.push_back("pushi 0");
-                        code.push_back("pushi 1");
+                        code.push_back(format_command("push %d", 4, 0));
+                        code.push_back(format_command("push %d", 4, 1));
                         push_smb.data = type_info("int", 0, deque<int>());
                         break;
                     }
                     case 57: { // andExpression -> andExpression __&& relExpression
                         type_info tpl = anytp_cast<type_info>(line[line.size() - 3].data);   
                         type_info tpr = anytp_cast<type_info>(line[line.size() - 1].data);
-                        code.push_back(asmc("pop", tpr) + " bx");   
-                        code.push_back(asmc("pop", tpl) + " ax");   
-                        code.push_back("and ax, bx");
-                        code.push_back("pushi logr");
+                        code.push_back(format_command("pop %s", tpr.type_size, "rbx"));
+                        code.push_back(format_command("pop %s", tpl.type_size, "rax"));
+                        code.push_back("and rax , rbx");
+                        code.push_back(format_command("push %s", 4, "rax"));
                         push_smb.data = type_info("int", 0, deque<int>());
                         break;
                     }
@@ -591,10 +526,10 @@ namespace tio
                     case 55: {   // simpleExpression -> simpleExpression __|| andExpression
                         type_info tpl = anytp_cast<type_info>(line[line.size() - 3].data);   
                         type_info tpr = anytp_cast<type_info>(line[line.size() - 1].data);
-                        code.push_back(asmc("pop", tpr) + " bx");   
-                        code.push_back(asmc("pop", tpl) + " ax");   
-                        code.push_back("or ax, bx");
-                        code.push_back("pushi logr");
+                        code.push_back(format_command("pop %s", tpr.type_size, "rbx"));
+                        code.push_back(format_command("pop %s", tpl.type_size, "rax"));
+                        code.push_back("or rax, rbx");
+                        code.push_back(format_command("push %s", 4, "rax"));
                         push_smb.data = type_info("int", 0, deque<int>());
                         break;
                     }
@@ -633,40 +568,18 @@ namespace tio
                         type_info tpr = anytp_cast<type_info>(line[line.size() -1].data);
                         string opt = anytp_cast<string>(line[line.size() - 2].data);
                         if(tpl != tpr) {
-                            if(tpl.ptr_cnt && tpr.ptr_cnt == 0 && tpr.type_name == "int") {
-                                code.push_back("popi ax"); // offset
-                                code.push_back("popl bx"); // base address
-                                push_smb.data = tpl;
-                            }
-                            else if(tpl.ptr_cnt == 0 && tpr.ptr_cnt && tpl.type_name == "int") {
-                                code.push_back("popl bx"); // base address
-                                code.push_back("popi ax"); // offset
-                                push_smb.data = tpr;
-                            } else {
-                                LOG(ERROR)<<"Type different! left_type: "<<tpl.to_string()<<" right_type:"<<tpr.to_string()<<endl;
-                                throw -1;
-                            }
-
-                            type_info tptmp = tpl;
-                            tptmp.ptr_cnt--;
-                            code.push_back("muli ax, " + to_string(raw_type_size(tptmp)));
-                            if(opt == "+") {
-                                code.push_back("addl bx, ax");
-                            } else {
-                                code.push_back("subl bx, ax");
-                            }
-
-                            code.push_back("pushl bx");                            
+                            LOG(ERROR)<<"Type different! left_type: "<<tpl.to_string()<<" right_type:"<<tpr.to_string()<<endl;
+                            throw -1;
                         } else {
-                            code.push_back(asmc("pop", tpl) + " bx");
-                            code.push_back(asmc("pop", tpl) + " ax");
+                            code.push_back(format_command("pop %s", tpr.type_size, "rbx"));
+                            code.push_back(format_command("pop %s", tpl.type_size, "rax"));
                             if(opt == "+") {
-                                code.push_back(asmc("add", tpl) + " ax, bx");
+                                code.push_back(format_command("add %s , %s", tpl.type_size, "rax", "rbx"));
                             } else {
-                                code.push_back(asmc("sub", tpl) + " ax, bx");
+                                code.push_back(format_command("mul %s , %d", tpr.type_size, "rax", -1));                                
+                                code.push_back(format_command("add %s , %s", tpl.type_size, "rax", "rbx"));                               
                             }
-
-                            code.push_back(asmc("push", tpl) + " ax");
+                            code.push_back(format_command("push %s", tpl.type_size, "rax"));
                             push_smb.data = tpl;
                         }
                         break;
@@ -679,13 +592,13 @@ namespace tio
                         break;
                     case 52: { // expression -> mutable __++
                         type_info tp = anytp_cast<type_info>(line[line.size() -2].data);
-                        code.push_back(asmc("add", tp) + " @ sp, 1");
+                        code.push_back(format_command("add @ %s , %d", tp.type_size, "rsp", 1));
                         push_smb.data = tp;
                         break;
                     }
                     case 53: { // expression -> mutable __--
                         type_info tp = anytp_cast<type_info>(line[line.size() -2].data);
-                        code.push_back(asmc("sub", tp) + " @ sp, 1");
+                        code.push_back(format_command("add @ %s , %d", tp.type_size, "rsp", -1));
                         push_smb.data = tp;
                         break;  
                     }
@@ -698,9 +611,8 @@ namespace tio
                         type_info tp = anytp_cast<type_info>(line[line.size() -1].data);
                         string opt = anytp_cast<string>(line[line.size() -2].data);
 
-                        code.push_back(asmc("pop", tp) + " bx"); // expression val
-                        code.push_back(asmc("pop", vfo) + " ax"); // mutable val
-
+                        code.push_back(format_command("pop %s", tp.type_size, "rbx"));
+                        code.push_back(format_command("pop %s", vfo.type_size, "rax"));
                         if(vfo.type_size < tp.type_size) {
                             LOG(ERROR)<<"type not match!"<<endl;
                             throw -1;
@@ -710,17 +622,23 @@ namespace tio
                         }
 
                         if(opt == "=") {
-                            code.push_back(asmc("mov", tp) + " ax, bx");
+                            code.push_back(format_command("mov @ %l , %s", vfo.type_size, vfo.addr, "rbx"));
                         } else if(opt == "+=") {
-                            code.push_back(asmc("add", tp) + " ax, bx");
+                            code.push_back(format_command("add %s , %s", vfo.type_size, "rax", "rbx"));
+                            code.push_back(format_command("mov @ %l , %s", vfo.type_size, vfo.addr, "rax"));
                         } else if(opt == "-=") {
-                            code.push_back(asmc("sub", tp) + " ax, bx");
+                            code.push_back(format_command("mul %s , %d", tp.type_size, "rbx", -1));
+                            code.push_back(format_command("add %s , %s", vfo.type_size, "rax", "rbx"));
+                            code.push_back(format_command("mov @ %l , %s", vfo.type_size, vfo.addr, "rax"));
                         } else if(opt == "/=") {
-                            code.push_back(asmc("div", tp) + " ax, bx");
+                            code.push_back(format_command("div %s , %s", vfo.type_size, "rax", "rbx"));
+                            code.push_back(format_command("mov @ %l , %s", vfo.type_size, vfo.addr, "rax"));
                         } else if(opt == "*=") {
-                            code.push_back(asmc("mul", tp) + " ax, bx");
+                            code.push_back(format_command("mul %s , %s", vfo.type_size, "rax", "rbx"));
+                            code.push_back(format_command("mov @ %l , %s", vfo.type_size, vfo.addr, "rax"));
                         } else if(opt == "%=") {
-                            code.push_back(asmc("mod", tp) + " ax, bx");
+                            code.push_back(format_command("mod %s , %s", vfo.type_size, "rax", "rbx"));
+                            code.push_back(format_command("mov @ %l , %s", vfo.type_size, vfo.addr, "rax"));
                         }
 
                         push_smb.data = type_info(vfo.type_name, vfo.ptr_cnt, deque<int>());
@@ -731,7 +649,7 @@ namespace tio
                         code.push_back("ret");
                         break;
                     case 33:    // returnStatement -> __return expression __;
-                        code.push_back(asmc("pop", anytp_cast<type_info>(line[line.size() - 2].data)) + " ax");
+                        code.push_back(format_command("pop %s", anytp_cast<type_info>(line[line.size() - 2].data).type_size, "rax"));
                         break;
                     default:
                         break;
@@ -762,10 +680,12 @@ namespace tio
             }
         }
         LOG(INFO)<<"Accepted!"<<endl;
-
+        
+        ofs<<entry_point<<endl;
         for(auto i : code) {
-            cout<<i<<endl;
+            ofs<<i<<endl;
         }
+        ofs.close();
         return 0;
     }
 
@@ -783,8 +703,41 @@ namespace tio
         }
     }
 
-    string LRParser::asmc(string cmd, const type_info& tp) {
-        return cmd + type_suffix(tp);
+    string LRParser::format_command(string pattern, int sz, ...) {
+        char cmd_suffix = sz == 1 ? 'c' : sz == 4 ? 'i' : 'l';
+        string ret = "";
+        va_list vp;
+        va_start(vp, sz);
+        bool fmt = false;
+        bool fst_emp = true;
+        for(auto i : pattern) {
+            if(i == '%') {
+                fmt = true;
+                continue;
+            }
+            if(fmt) {
+                string val = "";
+                if(i == 's') {
+                    val = va_arg(vp, char*);
+                } else if(i == 'd') {
+                    val = to_string(va_arg(vp, int));
+                } else if(i == 'l') {
+                    val = to_string(va_arg(vp, long long));
+                }
+                ret += val;
+                fmt = false;
+            } else {
+                if(i == ' ' && fst_emp) {
+                    fst_emp = false;
+                    ret += '_';
+                    ret += cmd_suffix;
+                }
+                ret += i;
+            }
+        }
+        va_end(vp);
+        LOG(INFO)<<ret<<endl;
+        return ret;
     }
 
     int LRParser::raw_type_size(const type_info& tp) {

@@ -10,7 +10,7 @@ namespace tio
     #define SYMBOL_TERMINAL 1
     #define SYMBOL_NONTERMINAL 2
     struct symbol {
-        int stype;
+        int stype;  // Ternminal or Nonterminal
         std::string raw;
         anytp data;
 

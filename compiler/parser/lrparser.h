@@ -15,12 +15,12 @@ namespace tio
         std::vector<std::string> code;
         std::shared_ptr<std::vector<lritem>> items;
         LRAutomaton atm;
-        SymbolTable sbtable;
+        SymbolTable sbtable;    // Global symbol table
         FuncTable ftable;
         int entry_point;
         
         std::string type_suffix(const type_info& tp);
-        std::string asmc(std::string cmd, const type_info& tp);
+        std::string format_command(std::string pattern, int sz, ...);
         int raw_type_size(const type_info& tp);
     public:
         int load_grammer(const char* fpath);
