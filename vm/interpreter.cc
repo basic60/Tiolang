@@ -14,8 +14,14 @@ namespace tiovm
     void Interpreter::pre_process(string fname) {
         ifstream ifs(fname);
         string line;
+        bool fst_line = true;
         while (getline(ifs, line)) {
             if(line == "") {
+                continue;
+            }
+            if(fst_line) {
+                entry_point = stol(line);
+                fst_line = false;
                 continue;
             }
 
@@ -27,7 +33,6 @@ namespace tiovm
             for(auto& i : split(line, ' ')) {
                 if(i == "@") {
                     swt ? laddr = true : raddr = true;
-                    cout<<swt<<" "<<laddr<<endl;
                 } else if (i == ",") {
                     swt = false;
                 } else {
@@ -37,7 +42,6 @@ namespace tiovm
             }
 
             Instruction ins;
-            cout<<line<<" "<<split(line, ' ').size()<<endl;
             ins.raw_command = line;
             ins.op_cnt = op_cnt;
             ins.laddr = laddr;
@@ -64,7 +68,7 @@ namespace tiovm
 
     void Interpreter::execute(string fname) {
         pre_process(fname);
-        uint64 pc = 0;                      // program counter
+        uint64 pc = entry_point;                      // program counter
         if(instructions.size() == 0) {
             return;
         }
@@ -127,14 +131,18 @@ namespace tiovm
                 regs["rsp"].set64(regs["rsp"].get64() + cmd.vsize);
                 ++pc;
             } else if(cmd.name == "print" && op_cnt == 2) {
-                if(laddr) {
-                    LOG(ERROR)<<"Error command format!"<<endl;
-                    throw -1;
-                }
                 if(opl.type == Operand::opd_type::number) {  // Print the data in the memory.
-                    cout<<opl.raw_val<<": "<<mmu.get_by_size(stol(opl.raw_val, 0, 0), cmd.vsize)<<endl;
+                    if(laddr) {
+                        cout<<"@"<<opl.raw_val<<": "<<mmu.get_by_size(stol(opl.raw_val, 0, 0), cmd.vsize)<<endl;
+                    } else {
+                        cout<<opl.raw_val<<": "<<opl.raw_val<<endl;
+                    }
                 } else {
-                    cout<<opl.raw_val<<": "<<regs[opl.raw_val].get_by_size(cmd.vsize)<<endl;
+                    if(laddr) {
+                        cout<<"@"<<opl.raw_val<<": "<<mmu.get_by_size(regs[opl.raw_val].get64(), cmd.vsize)<<endl;
+                    } else {
+                        cout<<opl.raw_val<<": "<<regs[opl.raw_val].get_by_size(cmd.vsize)<<endl;
+                    }
                 }
                 pc++;
             } else if(cmd.name == "cmp" && op_cnt == 3) { 
@@ -160,28 +168,6 @@ namespace tiovm
                 } else {
                     pc++;
                 }
-            } else if(cmd.name == "je" && op_cnt == 2) {
-                if(laddr) {
-                    LOG(ERROR)<<"Error command format!"<<endl;
-                    throw -1;
-                }
-                uint64 jmp_add = get_operand_val(opl, laddr);
-                if(regs["sf"].get64() == 0) {
-                    pc = jmp_add;
-                } else {
-                    pc++;
-                }
-            } else if(cmd.name == "jne" && op_cnt == 2) {
-                if(laddr) {
-                    LOG(ERROR)<<"Error command format!"<<endl;
-                    throw -1;
-                }
-                uint64 jmp_add = get_operand_val(opl, laddr);
-                if(regs["sf"].get64() != 0) {
-                    pc = jmp_add;
-                } else {
-                    pc++;
-                } 
             } else if((cmd.name == "add" || cmd.name == "mul" || cmd.name == "div")
                      && op_cnt == 3) {
                 if(laddr || opl.type != Operand::opd_type::reg) {
@@ -209,14 +195,25 @@ namespace tiovm
                 }
                 uint64 target_addr = get_operand_val(opl, laddr);
                 regs["rsp"].set64(regs["rsp"].get64() - 8);
-                mmu.set64(regs["rsp"].get64(), pc + 1);         // push pc
+                mmu.set64(regs["rsp"].get64(), regs["rbp"].get64());         // push rbp
                 regs["rsp"].set64(regs["rsp"].get64() - 8);
-                mmu.set64(regs["rbp"].get64(), pc + 1);         // push rbp
+                mmu.set64(regs["rsp"].get64(), pc + 1);         // push pc
                 pc = target_addr;
             } else if(cmd.name == "ret" && op_cnt == 1) {
-                pc = mmu.get64(regs["rbp"].get64() - 8);
-                regs["rsp"].set64(regs["rbp"].get64() - 16);      // skip the rbp and pc
-                regs["rbp"].set64(mmu.get64(regs["rbp"].get64()));
+                pc = mmu.get64(regs["rbp"].get64());
+                regs["rsp"].set64(regs["rbp"].get64() + 16);      // skip the rbp and pc
+                regs["rbp"].set64(mmu.get64(regs["rbp"].get64() + 8));
+            } else if(cmd.name == "not") {
+                if(laddr) {
+                    LOG(ERROR)<<"Command format error!"<<endl;
+                    throw -1;
+                }
+                uint64 val = get_operand_val(opl, laddr);
+                if(val) {
+
+                } else {
+                    
+                }
             } else {
                 LOG(ERROR)<<"Unknown command: " + ins.raw_command << ". Please check the foramt." << endl;
                 throw -1;

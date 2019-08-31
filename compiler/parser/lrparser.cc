@@ -125,7 +125,7 @@ namespace tio
                 }
 
                 if(act == 's') {    //   shift
-                    // LOG(INFO)<<"s"<<" "<<nid<<" "<<endl;
+                    // LOG(INFO)<<"s"<<" "<<sb.raw<<" "<<endl;
                     s.push(nid);
                     line.push_back(sb);
                 } else if(act == 'r') {     // reduce
@@ -265,13 +265,13 @@ namespace tio
 
                             if(i.ptr_cnt || i.type_name == "long") {
                                 loc_offset -= 8 * i.arr_size;           // loc_offset为距离rbp的偏移
-                                code.push_back(format_command("add %s , %d", 8, "rsp", loc_offset));
+                                code.push_back(format_command("add %s , %d", 8, "rsp", -8 * i.arr_size));
                             } else if(i.type_name == "char") {
                                 loc_offset -= 1 * i.arr_size;
-                                code.push_back(format_command("add %s , %d", 1, "rsp", loc_offset));
+                                code.push_back(format_command("add %s , %d", 1, "rsp", -1 * i.arr_size));
                             } else if(i.type_name == "int") {
                                 loc_offset -= 4 * i.arr_size;
-                                code.push_back(format_command("add %s , %d", 4, "rsp", loc_offset));
+                                code.push_back(format_command("add %s , %d", 4, "rsp", -4 * i.arr_size));
                             }
                             loc_table->add_to_table_loc(i, loc_offset);
                         }
@@ -302,7 +302,7 @@ namespace tio
                             } else {
                                 code.push_back(format_command("mov %s , %s", 8, "rax", "rbp"));
                                 code.push_back(format_command("add %s , %l", 8, "rax", vfo.addr));
-                                code.push_back(format_command("push @ %l , %l", vfo.type_size, "rax", vfo.addr));
+                                code.push_back(format_command("push @ %s", vfo.type_size, "rax"));
                             }
                         }
                         push_smb.data = vfo;
@@ -373,8 +373,12 @@ namespace tio
                         }
 
                         code.push_back(format_command("call %l", 8, fio.entry_line)); // pusn ip; push rbp
-
-                        push_smb.data = type_info(fio.type_name, fio.ptr_cnt, deque<int>());
+                        type_info func_tp = type_info(fio.type_name, fio.ptr_cnt, deque<int>());
+                        for(auto i : plst) {
+                            code.push_back(format_command("pop %s", i.type_size, "r4")); // clear the stack frame
+                        }
+                        code.push_back(format_command("push %s", func_tp.type_size, "r0")); // pusn ip; push rbp
+                        push_smb.data = func_tp;
                         break;
                     }
                     case 87: // immutable -> Call
@@ -576,7 +580,7 @@ namespace tio
                             if(opt == "+") {
                                 code.push_back(format_command("add %s , %s", tpl.type_size, "rax", "rbx"));
                             } else {
-                                code.push_back(format_command("mul %s , %d", tpr.type_size, "rax", -1));                                
+                                code.push_back(format_command("mul %s , %d", tpr.type_size, "rbx", -1));                                
                                 code.push_back(format_command("add %s , %s", tpl.type_size, "rax", "rbx"));                               
                             }
                             code.push_back(format_command("push %s", tpl.type_size, "rax"));
@@ -620,25 +624,54 @@ namespace tio
                             LOG(ERROR)<<"Array lacks index!"<<endl;
                             throw -1;                        
                         }
+                        
 
+                        if(vfo.scope == SCOPE_LOCAL) {
+                            code.push_back(format_command("mov %s , %s", 8, "rcx", "rbp"));
+                            code.push_back(format_command("add %s , %l", 8, "rcx", vfo.addr));
+                        }
                         if(opt == "=") {
-                            code.push_back(format_command("mov @ %l , %s", vfo.type_size, vfo.addr, "rbx"));
+                            if(vfo.scope == SCOPE_GLOBAL) {
+                                code.push_back(format_command("mov @ %l , %s", vfo.type_size, vfo.addr, "rbx"));
+                            } else {
+                                code.push_back(format_command("mov @ %s , %s", vfo.type_size, "rcx", "rbx"));
+                            }
                         } else if(opt == "+=") {
                             code.push_back(format_command("add %s , %s", vfo.type_size, "rax", "rbx"));
-                            code.push_back(format_command("mov @ %l , %s", vfo.type_size, vfo.addr, "rax"));
+                            if(vfo.scope == SCOPE_GLOBAL) {
+                                code.push_back(format_command("mov @ %l , %s", vfo.type_size, vfo.addr, "rax"));
+                            } else {
+                                code.push_back(format_command("mov @ %s , %s", vfo.type_size, "rcx", "rax"));
+                            }
                         } else if(opt == "-=") {
                             code.push_back(format_command("mul %s , %d", tp.type_size, "rbx", -1));
                             code.push_back(format_command("add %s , %s", vfo.type_size, "rax", "rbx"));
-                            code.push_back(format_command("mov @ %l , %s", vfo.type_size, vfo.addr, "rax"));
+                            if(vfo.scope == SCOPE_GLOBAL) {
+                                code.push_back(format_command("mov @ %l , %s", vfo.type_size, vfo.addr, "rax"));
+                            } else {
+                                code.push_back(format_command("mov @ %s , %s", vfo.type_size, "rcx", "rax"));
+                            }
                         } else if(opt == "/=") {
                             code.push_back(format_command("div %s , %s", vfo.type_size, "rax", "rbx"));
-                            code.push_back(format_command("mov @ %l , %s", vfo.type_size, vfo.addr, "rax"));
+                            if(vfo.scope == SCOPE_GLOBAL) {
+                                code.push_back(format_command("mov @ %l , %s", vfo.type_size, vfo.addr, "rax"));
+                            } else {
+                                code.push_back(format_command("mov @ %s , %s", vfo.type_size, "rcx", "rax"));
+                            }
                         } else if(opt == "*=") {
                             code.push_back(format_command("mul %s , %s", vfo.type_size, "rax", "rbx"));
-                            code.push_back(format_command("mov @ %l , %s", vfo.type_size, vfo.addr, "rax"));
+                            if(vfo.scope == SCOPE_GLOBAL) {
+                                code.push_back(format_command("mov @ %l , %s", vfo.type_size, vfo.addr, "rax"));
+                            } else {
+                                code.push_back(format_command("mov @ %s , %s", vfo.type_size, "rcx", "rax"));
+                            }
                         } else if(opt == "%=") {
                             code.push_back(format_command("mod %s , %s", vfo.type_size, "rax", "rbx"));
-                            code.push_back(format_command("mov @ %l , %s", vfo.type_size, vfo.addr, "rax"));
+                            if(vfo.scope == SCOPE_GLOBAL) {
+                                code.push_back(format_command("mov @ %l , %s", vfo.type_size, vfo.addr, "rax"));
+                            } else {
+                                code.push_back(format_command("mov @ %s , %s", vfo.type_size, "rcx", "rax"));
+                            }
                         }
 
                         push_smb.data = type_info(vfo.type_name, vfo.ptr_cnt, deque<int>());
@@ -649,7 +682,8 @@ namespace tio
                         code.push_back("ret");
                         break;
                     case 33:    // returnStatement -> __return expression __;
-                        code.push_back(format_command("pop %s", anytp_cast<type_info>(line[line.size() - 2].data).type_size, "rax"));
+                        code.push_back(format_command("pop %s", anytp_cast<type_info>(line[line.size() - 2].data).type_size, "r0"));
+                        code.push_back("ret");                        
                         break;
                     default:
                         break;

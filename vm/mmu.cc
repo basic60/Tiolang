@@ -60,18 +60,14 @@ namespace tiovm
         if(!page_ent.count(pid)) {
             page_ent[pid] = new uint8[VM_PAGE_SIZE];
             LOG(INFO)<<"Create a new page!"<<endl;
-            if(offset + 7 >= VM_PAGE_SIZE) {
-                if(!page_ent.count(npid)) {
-                    page_ent[npid] = new uint8[VM_PAGE_SIZE];
-                    LOG(INFO)<<"Create a new page!"<<endl;
-                }
-            }
         }
-
-
         uint64 ret = 0;
         int i = 0;int swt = 0;
         if(offset + 7 >= VM_PAGE_SIZE) {
+            if(!page_ent.count(npid)) {
+                page_ent[npid] = new uint8[VM_PAGE_SIZE];
+                LOG(INFO)<<"Create a new page!"<<endl;
+            }
             while (i < 8) {
                 ret |= (uint64)(page_ent[swt == 0 ? pid : npid][offset++]) << (i * 8);
                 i++;

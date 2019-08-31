@@ -42,6 +42,7 @@ namespace tiovm
         std::unordered_map<std::string, Register> regs;
         std::vector<Instruction> instructions;
         std::unordered_map<std::string, std::function<bool(int)>> jmp_judge;
+        int64 entry_point;
 
         void pre_process(std::string fname);
         int64 get_operand_val(const Operand& op, bool addr);

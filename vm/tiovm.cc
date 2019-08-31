@@ -8,7 +8,7 @@ using namespace tiovm;
 int main() {
     try {
         Interpreter intc;
-        intc.execute("test.log");
+        intc.execute("../compiler/code.log");
     } catch(int& x) {
         cout<<"Exit code: "<<x<<endl;
         return x;

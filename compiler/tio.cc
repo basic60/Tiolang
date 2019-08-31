@@ -45,6 +45,6 @@ int main(int argc, char** argv) {
         cerr<<e.what()<<endl;
     } catch(...) {
         cerr<<"Unknown exception"<<endl;
-    } 
+    }
     return 0;
 }
