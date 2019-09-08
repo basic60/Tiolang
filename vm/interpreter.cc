@@ -170,7 +170,7 @@ namespace tiovm
                 }
             } else if((cmd.name == "add" || cmd.name == "mul" || cmd.name == "div")
                      && op_cnt == 3) {
-                if(laddr || opl.type != Operand::opd_type::reg) {
+                if(laddr && opl.type != Operand::opd_type::reg) {
                     LOG(ERROR)<<"Left operand of command: "<<ins.raw_command<<" must be a register!"<<endl;
                     throw -1;
                 }
@@ -203,17 +203,19 @@ namespace tiovm
                 pc = mmu.get64(regs["rbp"].get64());
                 regs["rsp"].set64(regs["rbp"].get64() + 16);      // skip the rbp and pc
                 regs["rbp"].set64(mmu.get64(regs["rbp"].get64() + 8));
-            } else if(cmd.name == "not") {
-                if(laddr) {
-                    LOG(ERROR)<<"Command format error!"<<endl;
-                    throw -1;
+            } else if((cmd.name == "or" || cmd.name == "and") && op_cnt == 3) {
+                int64 vall = get_operand_val(opl, laddr);
+                int64 valr = get_operand_val(opr, raddr);
+                if(cmd.name == "or") {
+                    regs["lf"].set64(vall != 0 || valr != 0);
+                } else if(cmd.name == "and") {
+                    regs["lf"].set64(vall != 0 && valr != 0);
                 }
-                uint64 val = get_operand_val(opl, laddr);
-                if(val) {
-
-                } else {
-                    
-                }
+                pc++;
+            } else if(cmd.name == "not" && op_cnt == 2) {
+                int64 vall = get_operand_val(opl, laddr);
+                regs["lf"].set64(!vall);
+                pc++;
             } else {
                 LOG(ERROR)<<"Unknown command: " + ins.raw_command << ". Please check the foramt." << endl;
                 throw -1;

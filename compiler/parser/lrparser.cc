@@ -128,6 +128,21 @@ namespace tio
                     // LOG(INFO)<<"s"<<" "<<sb.raw<<" "<<endl;
                     s.push(nid);
                     line.push_back(sb);
+
+                    if(sb.raw == "else") {
+                        code.push_back("wait"); // true jump of last code block.
+                        true_list[true_list.size() - 1].push_back(code.size() - 1);
+
+                        code[false_list.top()] = "jne " + to_string(code.size()); // point to next code block
+                        false_list.pop();                    
+                    } else if(sb.raw == "elif") {
+                        code.push_back("wait"); // true jump of last code block.
+                        true_list[true_list.size() - 1].push_back(code.size() - 1);
+
+                        int back_num = false_list.top();
+                        false_list.pop();
+                        code[back_num] = "jne " + to_string(code.size()); // point to next code block
+                    }
                 } else if(act == 'r') {     // reduce
                     LOG(INFO)<<"r "<<nid<<"  "<<(*items)[nid - 1]<<endl;
                     int cnt = (*items)[nid - 1].body.size();
@@ -357,8 +372,19 @@ namespace tio
                         break;
                     }
                     case 89: { // Call -> __id __( args __)
+                        ParaList plst = anytp_cast<ParaList>(line[line.size() - 2].data);                        
+                        if(anytp_cast<string>(line[line.size() - 4].data) == "print") {
+                            if(plst.size() != 1) {
+                                LOG(ERROR)<<"Cann't print more than 1 parameter!"<<endl;
+                                throw -1;
+                            }
+                            code.push_back(format_command("pop %s", plst[0].type_size, "r4")); // clear the stack frame
+                            code.push_back(format_command("print %s", plst[0].type_size, "r4")); // clear the stack frame   
+                            push_smb.data = type_info("void", 0, deque<int>());
+                            break;                     
+                        }
+
                         func_info fio = ftable.get_func(anytp_cast<string>(line[line.size() - 4].data));
-                        ParaList plst = anytp_cast<ParaList>(line[line.size() - 2].data);
                         if(fio.para_lst.size() != plst.size()) {
                             LOG(ERROR)<<"Parament count not match!"<<endl;
                             throw -1;
@@ -432,7 +458,7 @@ namespace tio
                                 LOG(ERROR)<<"Wrong type argument to unary \'!\' "<<endl;
                                 throw -1;
                             }
-                            code.push_back(format_command("not %s , %d", tp.type_size, "rsp", -1));
+                            code.push_back(format_command("not %s", tp.type_size, "rsp"));
                         }
 
                         if(tp.rank.size()) {
@@ -507,10 +533,10 @@ namespace tio
                         } else if(opt == "!=") {
                             cmd = "jne ";
                         }
-                        code.push_back(cmd + to_string(code.size() + 2));
-
-                        code.push_back(format_command("push %d", 4, 0));
-                        code.push_back(format_command("push %d", 4, 1));
+                        code.push_back(cmd + to_string(code.size() + 3));
+                        code.push_back(format_command("push %d", 4, 0));  // not meet the condition
+                        code.push_back("jmp " + to_string(code.size() + 2));
+                        code.push_back(format_command("push %d", 4, 1));  // meet the condition
                         push_smb.data = type_info("int", 0, deque<int>());
                         break;
                     }
@@ -519,8 +545,8 @@ namespace tio
                         type_info tpr = anytp_cast<type_info>(line[line.size() - 1].data);
                         code.push_back(format_command("pop %s", tpr.type_size, "rbx"));
                         code.push_back(format_command("pop %s", tpl.type_size, "rax"));
-                        code.push_back("and rax , rbx");
-                        code.push_back(format_command("push %s", 4, "rax"));
+                        code.push_back(format_command("and %s , %s",tpl.type_size, "rax", "rbx"));
+                        code.push_back(format_command("push %s", 4, "lf"));
                         push_smb.data = type_info("int", 0, deque<int>());
                         break;
                     }
@@ -532,17 +558,29 @@ namespace tio
                         type_info tpr = anytp_cast<type_info>(line[line.size() - 1].data);
                         code.push_back(format_command("pop %s", tpr.type_size, "rbx"));
                         code.push_back(format_command("pop %s", tpl.type_size, "rax"));
-                        code.push_back("or rax, rbx");
-                        code.push_back(format_command("push %s", 4, "rax"));
+                        code.push_back(format_command("or %s , %s", tpl.type_size, "rax", "rbx"));
+                        code.push_back(format_command("push %s", 4, "lf"));
+                        if(line.size() - 5 >= 0 && line[line.size() - 5].raw == "if") {     // IfStatement -> __if __( simpleExpression __) Statement ElifStat
+                            process_if();
+                        } else if(line.size() - 5 >= 0 && line[line.size() - 5].raw == "elif") {
+                            process_elif_st();
+                        }
+
                         push_smb.data = type_info("int", 0, deque<int>());
                         break;
                     }
                     case 54:  // expression -> simpleExpression 
                         push_smb.data = line[line.size() -1].data;
                         break;
-                    case 56:    // simpleExpression -> andExpression
+                    case 56: {    // simpleExpression -> andExpression
+                        if(line.size() - 3 >= 0 && line[line.size() - 3].raw == "if") {
+                            process_if();
+                        } else if(line.size() - 3 >= 0 && line[line.size() - 3].raw == "elif") {
+                            process_elif_st();
+                        }
                         push_smb.data = line[line.size() - 1].data;
                         break;
+                    }
                     case 60: // relExpression -> sumExpression
                         push_smb.data = line[line.size() - 1].data;
                         break;
@@ -685,6 +723,23 @@ namespace tio
                         code.push_back(format_command("pop %s", anytp_cast<type_info>(line[line.size() - 2].data).type_size, "r0"));
                         code.push_back("ret");                        
                         break;
+                    case 35: {  // ElifStat -> __eof
+                        for(auto i : true_list[true_list.size() - 1]) {
+                            code[i] = "jmp " + to_string(code.size());  // backpatch
+                        }
+                        true_list.pop_back();
+
+                        int back_num = false_list.top();
+                        false_list.pop();
+                        code[back_num] = "jne " + to_string(code.size()); // point to next code block
+                        break;
+                    }
+                    case 37: { // ElifStat -> __else Statement
+                        for(auto i : true_list[true_list.size() - 1]) {
+                            code[i] = "jmp " + to_string(code.size());  // backpatch
+                        }
+                        true_list.pop_back();
+                    }
                     default:
                         break;
                     }
@@ -725,6 +780,21 @@ namespace tio
 
     LRParser::LRParser() {
         items.reset(new vector<lritem>());
+    }
+
+    void LRParser::process_if() {
+        code.push_back(format_command("pop %s", 4, "rax"));
+        code.push_back(format_command("cmp %s , %d", 4, "rax", 1));
+        code.push_back("wait");  // wait backpatching
+        false_list.push(code.size() - 1);
+        true_list.push_back({});
+    }
+
+    void LRParser::process_elif_st() {
+        code.push_back(format_command("pop %s", 4, "rax"));
+        code.push_back(format_command("cmp %s , %d", 4, "rax", 1));
+        code.push_back("wait");  // wait backpatching
+        false_list.push(code.size() - 1);
     }
 
     string LRParser::type_suffix(const type_info& tp) {

@@ -94,7 +94,7 @@ namespace tiovm
     }
 
     const unordered_set<string> Register::usable_regs = {"rax", "rbx", "rcx", "rdx", "rbp", "r0", "r1"
-            "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "rsp", "sf"};
+            "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "rsp", "sf", "lf"};
 
     bool Register::valid_reg(string rname) {
         return usable_regs.count(rname);
