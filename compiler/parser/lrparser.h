@@ -16,8 +16,11 @@ namespace tio
         std::shared_ptr<std::vector<lritem>> items;
         std::stack<unsigned long> false_list;
         std::vector<std::vector<unsigned long>> true_list;
+        std::stack<unsigned long> while_head;
+        std::stack<unsigned long> loop_exit;
         void process_if();
         void process_elif_st();
+        void process_while();
         LRAutomaton atm;
         SymbolTable sbtable;    // Global symbol table
         FuncTable ftable;

@@ -142,6 +142,8 @@ namespace tio
                         int back_num = false_list.top();
                         false_list.pop();
                         code[back_num] = "jne " + to_string(code.size()); // point to next code block
+                    } else if(sb.raw == "while") {
+                        while_head.push(code.size());
                     }
                 } else if(act == 'r') {     // reduce
                     LOG(INFO)<<"r "<<nid<<"  "<<(*items)[nid - 1]<<endl;
@@ -564,6 +566,8 @@ namespace tio
                             process_if();
                         } else if(line.size() - 5 >= 0 && line[line.size() - 5].raw == "elif") {
                             process_elif_st();
+                        } else if(line.size() - 5 >= 0 && line[line.size() - 5].raw == "while") {
+                            process_while();
                         }
 
                         push_smb.data = type_info("int", 0, deque<int>());
@@ -577,6 +581,8 @@ namespace tio
                             process_if();
                         } else if(line.size() - 3 >= 0 && line[line.size() - 3].raw == "elif") {
                             process_elif_st();
+                        } else if(line.size() - 3 >= 0 && line[line.size() - 3].raw == "while") {
+                            process_while();
                         }
                         push_smb.data = line[line.size() - 1].data;
                         break;
@@ -740,6 +746,13 @@ namespace tio
                         }
                         true_list.pop_back();
                     }
+                    case 38: {  // WhileStatement -> __while __( simpleExpression __) Statement
+                        code.push_back("jmp " + to_string(while_head.top()));
+                        while_head.pop();
+
+                        code[loop_exit.top()] = "jne " + to_string(code.size()); // point to next code block
+                        loop_exit.pop();
+                    }
                     default:
                         break;
                     }
@@ -795,6 +808,13 @@ namespace tio
         code.push_back(format_command("cmp %s , %d", 4, "rax", 1));
         code.push_back("wait");  // wait backpatching
         false_list.push(code.size() - 1);
+    }
+
+    void LRParser::process_while() {
+        code.push_back(format_command("pop %s", 4, "rax"));
+        code.push_back(format_command("cmp %s , %d", 4, "rax", 1));
+        code.push_back("wait");  // wait backpatching
+        loop_exit.push(code.size() - 1);
     }
 
     string LRParser::type_suffix(const type_info& tp) {
