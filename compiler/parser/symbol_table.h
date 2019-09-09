@@ -15,8 +15,6 @@ namespace tio
     #define SCOPE_GLOBAL 1
     #define SCOPE_LOCAL 2
 
-
-
     struct type_info {      //  符号表记录类型数据基类
         std::string type_name;
         int ptr_cnt;

@@ -745,6 +745,7 @@ namespace tio
                             code[i] = "jmp " + to_string(code.size());  // backpatch
                         }
                         true_list.pop_back();
+                        break;
                     }
                     case 38: {  // WhileStatement -> __while __( simpleExpression __) Statement
                         code.push_back("jmp " + to_string(while_head.top()));
